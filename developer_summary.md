@@ -21,6 +21,11 @@
 | **Complete Production Flow (5 Phases)** | ❌ | ✅ Added |
 | **Risk Assessment Matrix (Quadrant Chart)** | ❌ | ✅ Added |
 | **Value Distribution (Pie Chart)** | ❌ | ✅ Added |
+| **OpenEnv Interface (step/reset/state)** | ❌ | ✅ Added |
+| **openenv.yaml Configuration** | ❌ | ✅ Added |
+| **inference.py Baseline Script** | ❌ | ✅ Added |
+| **Normalized Scoring (0.0-1.0)** | ❌ | ✅ Added |
+| **Hardware Constraints (2vCPU/8GB)** | ❌ | ✅ Added |
 
 --------------
 ## 🧠 LLM Integration & Prompt Strategy
@@ -90,3 +95,53 @@ This strict separation ensures that even if HuggingFace Spaces recycles the depl
 | **False Negative Penalty (-0.2) — Asymmetric Design**  | ✅ | ✅ | ✅ Flowchart (NEW) |
 | **Reward Interaction Matrix (+1.0 max)**               | ✅ | ✅ | ✅ XY Chart (NEW) |
 | **Full System ER Diagram**                             | ✅ | ✅ | ✅ ER Diagram |
+
+---
+
+## 🤖 Baseline Inference Specification (`inference.py`)
+
+A mandatory component of the TrustOps-Env submission is the `inference.py` script. This script serves as the **reproducible baseline** for agent performance evaluation.
+
+### OpenAI Client Integration
+The script must utilize the native `OpenAI` client for all LLM interactions, pulling configuration from the standardized environment variables:
+- `API_BASE_URL`: The endpoint host.
+- `MODEL_NAME`: The specific model ID (e.g., Qwen2.5-72B).
+- `HF_TOKEN`: The API key for authentication.
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+```
+
+### Strict STDOUT Logging Format
+To pass automated scoring, the script must emit exactly three line types in this order:
+1. **`[START]`**: Emitted once at episode beginning.
+2. **`[STEP]`**: Emitted after every `env.step()`, tracking action, reward, and done status.
+3. **`[END]`**: Emitted once after `env.close()`, providing final success status and normalized score.
+
+---
+
+## 🛠️ Setup & Validation Usage
+
+Before final submission, developers must verify their environment and inference script using the following standardized tools.
+
+### 1. Environment Validation
+Run the core validator to ensure Pydantic model compliance and OpenEnv API adherence:
+```bash
+pip install openenv-core
+openenv validate
+```
+
+### 2. Submission Pre-check
+Execute the automated validation script to ping the HF Space and verify the Docker build:
+```bash
+./validate-submission.sh <HF_SPACE_URL>
+```
+
+### 3. Local Baseline Execution
+Run the inference script locally to ensure scores are generated and logs follow the required format:
+```bash
+python inference.py
+```
+
+> **Validation Constraint:** The inference script must complete within **20 minutes** on a machine with **2 vCPUs** and **8 GB RAM** to be considered valid for the competition scoring pipeline.

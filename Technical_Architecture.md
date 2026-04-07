@@ -12,9 +12,7 @@ This document details the internal technical architecture that powers the TrustO
 
 ---
 
-## Data Models
-
-The TrustOps-Env defines its internal state using strict `BaseModel` classes. These models ensure every piece of data flowing through the simulation is typed, validated, and traceable.
+The TrustOps-Env defines its internal state using strict **Pydantic `BaseModel`** classes. These models ensure every piece of data flowing through the simulation is typed, validated, and traceable — fulfilling the **OpenEnv Typed Model** requirement for automated verification.
 
 ### Content Object
 
@@ -115,6 +113,51 @@ flowchart TD
     style B fill:#45b7d1,color:#000
     style C fill:#f7dc6f,color:#000
 ```
+
+---
+
+## OpenEnv Interface Specification
+
+TrustOps-Env provides a standardized interface for reinforcement learning agents by implementing the core **OpenEnv Specification**. This allows the environment to be validated via `openenv validate` and consistently integrated into research pipelines.
+
+### Core API Methods
+
+| Method | Signature | Description |
+| :--- | :--- | :--- |
+| **`reset()`** | `() -> Observation` | Initializes a new episode, clears the `moderation_log`, and populates a new `content_queue`. Returns the initial observation. |
+| **`step()`** | `(action: Action) -> (Observation, float, bool, dict)` | Processes the agent's decision for the current content item. Returns the next observation, step reward, terminal status (`done`), and additional info. |
+| **`state()`** | `() -> dict` | Returns the current internal state of the environment for debugging and introspection. |
+
+### Episode Boundaries & Lifecycle
+
+The TrustOps-Env simulation follows a structured **Episode Lifecycle** to ensure reproducible research outcomes:
+
+1. **Initialization (`reset`)**: The environment state is set to `step_count = 0`. A fresh `content_queue` is generated based on the selected task difficulty (EASY/MEDIUM/HARD).
+2. **The Step Loop**: The agent iteratively receives the top item from the `content_queue`, processes it, and submits an `Action`.
+3. **State Persistence**: Each action and its associated reward/reasoning is persisted in the `moderation_log` throughout the episode.
+4. **Termination (`done=True`)**: An episode terminates when:
+    - The `content_queue` is empty (all tasks completed).
+    - The `MAX_STEPS` limit (default: 8) is reached.
+    - A critical policy violation occurs (optional, task-dependent).
+
+```mermaid
+sequenceDiagram
+    participant Agent as Agent / inference.py
+    participant Env as TrustOps-Env (OpenEnv)
+    
+    Agent->>Env: reset()
+    Env-->>Agent: return Initial Observation (Queue, Log, Step 0)
+    
+    loop Until done == True
+        Agent->>Env: step(Action)
+        Env->>Env: Process Content + Grade Decision
+        Env-->>Agent: return (Next Observation, Reward, done, info)
+    end
+    
+    Env->>Env: Finalize Episode Metrics
+```
+
+---
 
 **Data Flow Summary:**
 1. A `Content` object enters the system and is placed into `Observation.content_queue`.
@@ -639,7 +682,43 @@ sequenceDiagram
 
 ## Infrastructure Layer — Architecture Supporting Agent Tasks
 
-The Infrastructure represents the foundational deployment stack and runtime environment that supports the system's broader Technical Architecture. Building a secure, portable, and highly observable infrastructure was the **mandatory engineering prerequisite** to successfully running and evaluating the complex Agent Tasks within the simulation.
+The infrastructure of TrustOps-Env is designed for **Dual-Mode Deployment**: serving as a live, observable research dashboard on Hugging Face Spaces, while maintaining strict compliance with containerized validation requirements via Docker.
+
+### openenv.yaml Configuration
+
+To satisfy the OpenEnv specification, the repository root contains an `openenv.yaml` file. This metadata file provides the definitive mapping between the environment's capabilities and its technical identification.
+
+| Parameter | Configuration | Purpose |
+| :--- | :--- | :--- |
+| **`name`** | `trustops-env` | Unique identifier for registry lookup. |
+| **`version`** | `1.0.0` | Tracks architectural and reward system iterations. |
+| **`entry_point`** | `app:MyEnv` | Tells the OpenEnv validator where the class is located. |
+| **`task_tiers`** | `EASY, MEDIUM, HARD` | Metadata for agent task selection. |
+
+---
+
+### Dual-Mode Deployment: SDK vs. Docker
+
+A critical engineering decision was made to support both cloud observability and local containerization.
+
+| Deployment Target | Configuration | Status | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Hugging Face Space** | `sdk: gradio` | ✅ Live | Forces a native Python runtime for Gradio rendering and log streaming. |
+| **OpenEnv Submission** | `Dockerfile` | ✅ Verified | Provides a standardized container for `docker build` and automated validation. |
+
+---
+
+### Data Model Pydantic Mapping
+
+The system utilizes Pydantic `BaseModel` classes to enforce strict schema validation for all agent-environment interactions.
+
+| Data Model | Pydantic Field | Validation Logic |
+| :--- | :--- | :--- |
+| **Content** | `id`, `text` | Ensures non-empty strings and unique identifiers. |
+| **Action** | `action_type` | Enum validation (`flag`, `allow`, `escalate`). |
+| **Observation** | `moderation_log` | List-based state tracking for episode history. |
+
+---
 
 ### The Initial Infrastructure Failure
 

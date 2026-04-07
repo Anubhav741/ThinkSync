@@ -183,6 +183,32 @@ sequenceDiagram
     GIT->>REPO: Push ACCEPTED ✅
 ```
 
+### Environment Variables for Secrets & Configuration
+
+The shift to environment variables is a **mandatory security and operational requirement** for TrustOps-Env. All sensitive credentials and environment-specific configurations are abstracted from the source code and managed via `os.getenv()`.
+
+### Mandatory Environment Variables
+
+To successfully deploy, validate, and run inference against the environment, the following variables must be defined in the host or CI/CD secrets:
+
+| Variable | Requirement | Purpose |
+| :--- | :--- | :--- |
+| **`HF_TOKEN`** | Mandatory | Authenticates access to HuggingFace Hub for toxicity and zero-shot models. |
+| **`API_BASE_URL`** | Mandatory | Defines the API endpoint for the LLM during baseline inference. |
+| **`MODEL_NAME`** | Mandatory | Specifies the model identifier (e.g., `Qwen/Qwen2.5-72B-Instruct`) to be used. |
+
+---
+
+### Infrastructure & Runtime Restrictions
+
+TrustOps-Env is optimized to run within constrained environments common in automated research validation. The system is engineered to function reliably under the following **OpenEnv Infrastructure Restrictions**:
+
+| Resource | Constraint | Architectural Response |
+| :--- | :--- | :--- |
+| **vCPU** | `2` | Lightweight Python runtime; non-blocking async log streaming. |
+| **Memory** | `8 GB` | Efficient model loading; content queue limits. |
+| **Runtime** | `< 20 minutes` | Optimized episode length (max 8 steps) for rapid validation. |
+
 ### The Fix: `os.getenv("HF_TOKEN")`
 
 The developer executed a critical security fix by **entirely removing** the hardcoded token from the source code and replacing it with a secure environment variable call.
@@ -815,5 +841,6 @@ flowchart BT
 | **Cross-Machine Execution**        | —                                           | ✅ Dynamic paths for any filesystem layout.  |
 | **Research Collaboration**         | ✅ Each researcher uses own secure token.   | ✅ Each researcher's machine has unique paths.|
 | **CI/CD Pipelines**                | ✅ Token injected as pipeline secret.       | ✅ Paths resolve in pipeline workspace.      |
+| **Competition Validation**         | ✅ Mandatory `API_BASE_URL` and `MODEL_NAME`.| ✅ Constraints: 2 vCPU / 8GB RAM / <20min. |
 
 > **The Conclusion:** Resolving the security and portability flaws was the mandatory final engineering step — the critical phase of **Engineering Optimization** — that transformed TrustOps-Env from a non-deployable, insecure, developer-locked script into a **"properly engineered state"**: a clean, secure, universally portable production application deployed in its **"production based most optimised form"** — stably hosted on HuggingFace Spaces and safely open-sourced on GitHub. By systematically eliminating every hardcoded element — API tokens replaced with `os.getenv`, absolute paths replaced with `os.path.join`, and the entire codebase verified through a comprehensive security audit — the developer enforced the strict security best practices required for the application to serve its intended research use case.

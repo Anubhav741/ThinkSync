@@ -737,6 +737,43 @@ bar [0.5, 0.3, 0.2, -0.1, -0.2]
 | Correct flag on ambiguous content          | +0.5         | +0.3   | +0.2      | 0.0     | **+1.0**  |
 
 ---
+
+### Normalized Grader Scoring (0.0 - 1.0)
+
+To maintain compliance with the **OpenEnv Grader Specification**, the final performance of an agent in TrustOps-Env is converted from the cumulative reward system into a **normalized score between 0.0 and 1.0**.
+
+The normalization logic is defined as:
+`Normalized Score = (Total Episode Reward) / (Max Possible Episode Reward)`
+
+| Difficulty | Max Possible Reward | Normalization Basis |
+| :--- | :--- | :--- |
+| **EASY** | `+0.8` | Classification (+0.5) + Action (+0.3). |
+| **MEDIUM** | `+1.0` | Classification (+0.5) + Action (+0.3) + Reasoning (+0.2). |
+| **HARD** | `+1.0` | Classification (+0.5) + Action (+0.3) + Reasoning (+0.2). |
+
+> **Grader Pass/Fail Threshold:** A normalized score of **>= 0.1** is generally considered a "success" (as defined in the mandatory `inference.py` template) to ensure the agent is making non-random, policy-aligned decisions.
+
+---
+
+### Baseline Performance Targets
+
+The following baseline scores represent the expected performance of an agent using the **Qwen/Qwen2.5-72B-Instruct** (or similar frontier model) via the `inference.py` script. These targets are used to validate the environment's difficulty scaling and reward sensitivity.
+
+| Task Tier | Target Normalized Score | Achievement Criteria |
+| :--- | :--- | :--- |
+| **EASY** | `0.90 - 0.95` | Near-perfect classification and action on clear spam. |
+| **MEDIUM** | `0.75 - 0.85` | High accuracy on borderline abuse; initial reasoning alignment. |
+| **HARD** | `0.60 - 0.70` | Navigates nuance; significant embedding similarity in reasoning. |
+
+```mermaid
+xychart-beta
+title "Baseline Performance Targets (Normalized)"
+x-axis ["EASY", "MEDIUM", "HARD"]
+y-axis "Target Score" 0 --> 1.0
+bar [0.95, 0.85, 0.70]
+```
+
+---
 ---
 
 ## Challenges — Limitations & Risk Factors
@@ -1014,6 +1051,8 @@ The Research & Evaluation framework connects directly to every other documented 
 | **Action Correctness (+0.3)**     | [Technical Architecture](./Technical_Architecture.md)   | Evaluates operational enforcement of approve/remove/flag decisions.       |
 | **Reasoning Quality (+0.2)**      | [Technical Architecture](./Technical_Architecture.md)   | Embedding similarity grading for MEDIUM + HARD cognitive evaluation.      |
 | **False Negative Penalty (-0.2)** | [Core Concept](./core_concept.md)                       | Asymmetric design reflects real-world legal risk prioritization.          |
+| **Normalized Scoring (0.0-1.0)**  | —                                                       | Required for OpenEnv spec compliance; maps rewards to final score.      |
+| **Baseline Targets**              | `developer_summary.md`                                | Defines expected performance for the baseline `inference.py` script.     |
 | **Grading Observability**         | [UI](./UI.md)                                           | Scores rendered via Gradio wrapper as START/STEP/END.                     |
 | **Dataset Bias**                  | [Core Concept](./core_concept.md)                       | Acknowledged limitations of the simplified research design.               |
 | **Ethical Implications**          | [Core Concept](./core_concept.md)                       | Platform risk constraints that shape the reward system.                   |
