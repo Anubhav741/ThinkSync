@@ -46,20 +46,43 @@ The UI directly maps to the `BaseModel` classes defined in the technical archite
 | **`Action` Model** | **Decision Badges** | Visually highlights the agent's output type (`approve`, `remove`, `flag`). |
 
 ```mermaid
-erDiagram
-    UI_COMPONENTS {
-        string Feed_Panel "Displays Content.text"
-        string Status_Badge "Displays Action.type"
-        int Step_Tracker "Displays step progression"
-    }
+flowchart LR
+    subgraph Backend ["Backend (Python + RL Pipeline)"]
+        A1["Content Object"]
+        A2["Agent Inference"]
+        A3["Observation State"]
+        A4["Action Decision"]
+        A5["Grader (Reward System)"]
+    end
 
-    BACKEND_MODELS {
-        class Observation
-        class Content
-        class Action
-    }
+    subgraph Observability ["Observability Layer"]
+        B1["Log Wrapper"]
+        B2["Async Stream ([START] [STEP] [END])"]
+    end
 
-    BACKEND_MODELS ||--|| UI_COMPONENTS : "Directly deserializes into"
+    subgraph UI ["Gradio Dashboard"]
+        C1["Input / Content Feed"]
+        C2["Real-Time Log Panel"]
+        C3["Decision Badge (Approve/Remove/Flag)"]
+        C4["Score Dashboard"]
+        C5["Step Tracker"]
+    end
+
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A4 --> A5
+
+    A2 --> B1
+    A3 --> B1
+    A4 --> B1
+    B1 --> B2
+
+    B2 --> C2
+    A1 --> C1
+    A4 --> C3
+    A5 --> C4
+    A3 --> C5
 ```
 
 ## 5. Action Space Visualization
