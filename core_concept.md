@@ -87,31 +87,40 @@ bar [95, 100, 90, 85]
 ### System Workflow
 ```mermaid
 flowchart TD
-
-A([Start: Initialize TrustOps-Env]) --> B[/Load Secure Env Variables/]
-
-B --> C[Launch Python Runtime & Load Gradio UI]
-
-C --> D{Evaluate Task Difficulty}
-
-D -->|EASY| E[Detect Spam vs Safe Content]
-D -->|MEDIUM| F[Enforce Platform Policies]
-D -->|HARD| G[Analyze Nuanced/Contextual Content]
-
-E --> H[Agent Reasons & Processes Task]
-F --> H
-G --> H
-
-H --> I{Agent Decision}
-
-I -->|Approve| J[Update Moderation Log & Count Step]
-I -->|Remove| J
-I -->|Flag| J
-I -->|Escalate| J
-
-J --> K[Output Step execution to UI]
-
-K --> L([End: Render Action Status])
+    A([Start: Initialize TrustOps-Env]) --> B[/Load Secure Env Variables .env /]
+    B --> C[Boot Python Runtime via HuggingFace Spaces]
+    C --> D[Initialize Gradio Event Loop & UI Components]
+    
+    D --> E{API Health Check}
+    E -->|Failed| F[Raise Startup Error / Fallback]
+    E -->|Passed| G[Fetch Batch Content Queue]
+    
+    G --> H{Evaluate Content Complexity Matrix}
+    
+    H -->|EASY| I[Run Spam Filters & NLP Heuristics]
+    H -->|MEDIUM| J[Load Platform Policy Checkpoints]
+    H -->|HARD| K[Activate Context-Aware Deep LLM Analysis]
+    
+    I --> L[Agent Cognitive Processing - START Logging]
+    J --> L
+    K --> L
+    
+    L --> M[Compute Safety & Confidence Embeddings]
+    M --> N{Agent Autonomous Decision Engine}
+    
+    N -->|Confidence > 90% & Safe| O[Approve Content ✅]
+    N -->|Confidence > 90% & Violation| P[Remove Content 🚫]
+    N -->|Confidence Between 50-89%| Q[Flag for Secondary Verification ⚠️]
+    N -->|Confidence < 50% / Edge Case| R[Escalate to Human Trust & Safety Team ⬆️]
+    
+    O --> S[Commit Record to Moderation DB & Assign +0.3/-0.2 Penalty Matrix]
+    P --> S
+    Q --> S
+    R --> S
+    
+    S --> T[Trigger Wrapper Output]
+    T --> U[Stream STEP Reasoning Logic to Gradio UI]
+    U --> V([End: Final END Status & Loop Reset])
 ```
 
 ### Architecture Flow
@@ -133,34 +142,56 @@ flowchart LR
 erDiagram
 
 ENVIRONMENT {
+    string EnvironmentID PK
     string Type "OpenEnv Simulation"
     string Runtime "Python"
     string Framework "Gradio"
+    string APIHealthStatus
+    string AllowedOrigins
+    boolean IsActive
 }
 
 AGENT {
     string AgentID PK
+    string ModelName
     string ReasoningLog
     int StepCount
+    float CurrentReward
+    float CognitiveEmbeddingScore
 }
 
 MODERATION_TASK {
     string TaskID PK
+    string BatchQueueID
     string Difficulty "EASY, MEDIUM, HARD"
+    string ComplexityMatrixScore
+    string ExpectedAction
     string Type
 }
 
 CONTENT {
     string ContentID PK
     string Text
+    string SourcePlatform
     boolean HasNuance
+    string Language
+    string NLPHeuristicFlag
 }
 
 ACTION_LOG {
     string LogID PK
     string Stage "START, STEP, END"
     string Action "Approve, Remove, Flag, Escalate"
+    float ConfidencePercentage
     datetime Timestamp
+    float PenaltyIncurred
+}
+
+HUMAN_ESCALATION {
+    string TicketID PK
+    string TaskID FK
+    string AgentID FK
+    string TrustSafetyTeamStatus
 }
 
 ENVIRONMENT ||--o{ AGENT : "hosts"
@@ -168,6 +199,7 @@ ENVIRONMENT ||--o{ MODERATION_TASK : "assigns"
 AGENT ||--o{ MODERATION_TASK : "performs"
 MODERATION_TASK ||--|| CONTENT : "contains"
 AGENT ||--o{ ACTION_LOG : "records"
+ACTION_LOG ||--o{ HUMAN_ESCALATION : "triggers"
 ```
 
 ---
@@ -456,7 +488,7 @@ Because of the high complexity, ethical sensitivity, and difficulty of early mon
 | **Competitive Advantage**     | No existing tool provides real-time observable moderation simulation with structured reward mechanics.     |
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#3b82f6', 'pie2': '#8b5cf6', 'pie3': '#10b981', 'pie4': '#f59e0b', 'pieTitleTextSize': '21px', 'pieTitleTextWeight': 'bold'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#1E3A8A', 'pie2': '#4C1D95', 'pie3': '#064E3B', 'pie4': '#78350F', 'pieTitleTextSize': '28px', 'pieTitleTextWeight': 'bold', 'pieLegendTextSize': '20px', 'pieSectionTextSize': '20px', 'textColor': '#FFFFFF'}}}%%
 pie title TrustOps-Env Value Distribution
     "Research & Academic Use" : 45
     "Trust & Safety Team Training" : 25
@@ -472,50 +504,66 @@ pie title TrustOps-Env Value Distribution
 erDiagram
 
 ENVIRONMENT {
+    string EnvironmentID PK
     string Type "OpenEnv Simulation"
     string Runtime "Python"
     string Framework "Gradio"
     string PolicyMode "Simplified"
+    string SecurityTokens
+    boolean IsDockerHalted
+    int APIHealthPingMs
 }
 
 AGENT {
     string AgentID PK
+    string ModelVersion
     string ReasoningLog
     int StepCount
     float CumulativeReward
     float ConfidenceScore
+    boolean NeedsHumanReview
+    float SafetyEmbeddingThreshold
 }
 
 MODERATION_TASK {
     string TaskID PK
+    string BatchID FK
     string Difficulty "EASY, MEDIUM, HARD"
     string Type
     string PolicyContext
+    datetime AssignedAt
 }
 
 CONTENT {
     string ContentID PK
     string Text
+    string MediaURL
     boolean HasNuance
     string CulturalContext
     string LanguageType "direct, coded, satirical"
+    float SpamProbability
 }
 
 ACTION_LOG {
     string LogID PK
+    string TaskID FK
     string Stage "START, STEP, END"
     string Action "Approve, Remove, Flag, Escalate"
     datetime Timestamp
     string ReasoningChain
+    float ExecutionTimeMs
+    boolean StepStreamedToUI
 }
 
 REWARD_RECORD {
     string RewardID PK
+    string GraderID FK
     float ClassificationScore "0.0 or 0.5"
     float ActionScore "0.0 or 0.3"
     float ReasoningScore "0.0 to 0.2"
     float PenaltyApplied "0.0, -0.1, or -0.2"
     float TotalScore
+    string MatrixJustification
 }
 
 ESCALATION_QUEUE {
@@ -523,6 +571,8 @@ ESCALATION_QUEUE {
     string Reason "Low confidence, edge case, policy gap"
     string Status "Pending, Reviewed, Resolved"
     string ReviewerDecision "Release, Remove, PolicyUpdate"
+    datetime EscalatedAt
+    string HumanReviewerID
 }
 
 GRADER {
@@ -530,17 +580,28 @@ GRADER {
     string ToxicityModelRef "HF Toxicity Model"
     string ZeroShotRef "HF Zero-Shot Classifier"
     float EmbeddingSimilarityThreshold
+    boolean Active
+}
+
+UI_DASHBOARD {
+    string SessionID PK
+    string ConnectedAgent FK
+    int RenderPings
+    boolean ActiveWrapperStream
+    string ErrorFallbackState
 }
 
 ENVIRONMENT ||--o{ AGENT : "hosts"
 ENVIRONMENT ||--o{ MODERATION_TASK : "assigns"
 ENVIRONMENT ||--|| GRADER : "uses"
+ENVIRONMENT ||--|| UI_DASHBOARD : "renders to"
 AGENT ||--o{ MODERATION_TASK : "performs"
 MODERATION_TASK ||--|| CONTENT : "contains"
 AGENT ||--o{ ACTION_LOG : "records"
 AGENT ||--o{ REWARD_RECORD : "receives"
 AGENT ||--o{ ESCALATION_QUEUE : "triggers"
 GRADER ||--o{ REWARD_RECORD : "computes"
+ACTION_LOG }|--|| MODERATION_TASK : "relates to"
 ```
 
 ---
@@ -579,3 +640,23 @@ flowchart LR
 
 ---
 
+## 🧠 LLM Integration & Prompt Strategy
+
+To successfully navigate the complex environments modeled in TrustOps-Env, the foundational AI agents must be equipped with specialized system prompts depending on the Difficulty Matrix assigned to the task.
+
+### Zero-Shot System Prompt Injections
+
+| Task Difficulty | Prompt Focus Areas | Target Capabilities |
+| --- | --- | --- |
+| **EASY** | Binary logic, speed, regex-like matching. | Focuses purely on parsing clear spam patterns or overt policy violations. Fast, deterministic output expected. |
+| **MEDIUM** | Platform specific frameworks, conditional logic. | Agent must cross-reference text with simulated Terms of Service. Checks for gray-area violations like low-level toxicity. |
+| **HARD** | Cultural reasoning, legal nuance, zero-shot inference. | Highly complex zero-shot analysis. The prompt instructs the agent to act as a *legal analyst*, prioritizing context and demanding an escalation flag if confidence dips below 50%. |
+
+### Real-world Synchronization Mechanics
+
+The bridge between the theoretical AI classification loop and the visual front-end relies entirely on the **Wrapper Synchronization Protocol**:
+1. **The Event Emitter**: Normally, heavy LLM inference blocks a Python thread. TrustOps uses a native event emitter that listens to standard output.
+2. **The Buffer**: Reasoning logic inside the agent module is captured safely in an asynchronous buffer.
+3. **The Flush**: The Gradio generator function `yields` the captured buffer chunks, outputting the reasoning matrix (`[START] > [STEP] > [END]`) without freezing the interface. 
+
+This strict separation ensures that even if HuggingFace Spaces recycles the deployment container, the moderation tasks remain persistent and the UI remains fully responsive.
