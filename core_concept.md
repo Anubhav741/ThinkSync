@@ -364,6 +364,14 @@ Escalation is not a failure mode — it is a **strategic safety mechanism**. Whe
 
 ```mermaid
 flowchart TD
+    %% Premium Edge-Case Color Variables %%
+    classDef default fill:#1E293B,stroke:#94A3B8,stroke-width:2px,color:#F8FAFC;
+    classDef safe fill:#065F46,stroke:#10B981,stroke-width:2px,color:#fff;
+    classDef danger fill:#7F1D1D,stroke:#EF4444,stroke-width:2px,color:#fff;
+    classDef warning fill:#B45309,stroke:#F59E0B,stroke-width:2px,color:#fff;
+    classDef routing fill:#4338CA,stroke:#818CF8,stroke-width:2px,color:#fff;
+    classDef human fill:#4C1D95,stroke:#A78BFA,stroke-width:2px,color:#fff;
+
     A([Content Received]) --> B{Agent Confidence Check}
     
     B -->|"High Confidence"| C{Classification Decision}
@@ -387,8 +395,12 @@ flowchart TD
     K --> N
     L --> N
     
-    style F fill:#ff6b6b,color:#fff
-    style I fill:#ffd93d,color:#000
+    %% Apply Styled Classes %%
+    class D,K safe;
+    class E,L danger;
+    class F,G,H warning;
+    class I,J,M human;
+    class A,N default;
 ```
 
 **When does escalation trigger?**
@@ -444,6 +456,7 @@ Because of the high complexity, ethical sensitivity, and difficulty of early mon
 | **Competitive Advantage**     | No existing tool provides real-time observable moderation simulation with structured reward mechanics.     |
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#3b82f6', 'pie2': '#8b5cf6', 'pie3': '#10b981', 'pie4': '#f59e0b', 'pieTitleTextSize': '21px', 'pieTitleTextWeight': 'bold'}}}%%
 pie title TrustOps-Env Value Distribution
     "Research & Academic Use" : 45
     "Trust & Safety Team Training" : 25
@@ -565,5 +578,4 @@ flowchart LR
 ```
 
 ---
-
 
