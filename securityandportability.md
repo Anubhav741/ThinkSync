@@ -36,7 +36,7 @@ flowchart LR
         O4["Enforce compliance\nGitHub Secret Scanning pass"]
     end
 
-    subgraph After ["\"Properly Engineered State\""]
+    subgraph After ["Properly Engineered State"]
         P1["Secure repository\nzero credential exposure"]
         P2["Portable codebase\nruns on any system"]
         P3["Audit-verified\nonly mock placeholders"]
@@ -559,7 +559,7 @@ flowchart TD
     E --> G
     F --> G
 
-    G --> H["\"Properly Engineered State\"\nProduction-ready application"]
+    G --> H["Properly Engineered State\nProduction-ready application"]
 
     class A pattern
     class B,C,D,E,F,G,H benefit
