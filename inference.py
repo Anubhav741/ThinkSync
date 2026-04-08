@@ -96,7 +96,7 @@ def run_inference():
     total_tasks  = len(obs.content_queue)
     episode_start = time.time()
 
-    print(f"[START] TrustOps-Env inference started. Tasks: {total_tasks}, Model: {MODEL_NAME}")
+    print(f"[START] TrustOps inference started. Tasks: {total_tasks}, Model: {MODEL_NAME}")
 
     step_num = 0
     while obs.episode_active and obs.content_queue:

@@ -1,4 +1,4 @@
-name: TrustOps-Env
+name: TrustOps
 version: "1.0.0"
 description: >
   A programmatic content moderation reinforcement learning environment
@@ -61,25 +61,21 @@ tasks:
         expected_label: WHISTLEBLOWER
 
 action_space:
-  type: discrete
-  values:
-    - approve
-    - remove
-    - flag
+  type: structured
   schema:
-    content_id:       string   # References Content.id
-    action_type:      enum     # approve | remove | flag
-    reasoning_chain:  string   # Step-by-step justification
-    confidence_score: float    # 0.0 – 1.0
+    content_id:       string
+    action_type:      string
+    reasoning_chain:  string
+    confidence_score: float
 
 observation_space:
   type: structured
   schema:
-    content_queue:      list[Content]   # Posts awaiting moderation
-    moderation_log:     list[dict]      # History of all decisions and rewards
-    step_count:         int             # Steps completed in current episode
-    cumulative_reward:  float           # Running reward total
-    episode_active:     bool            # Whether the episode is still running
+    content_queue:      array
+    moderation_log:     array
+    step_count:         integer
+    cumulative_reward:  float
+    episode_active:     boolean
 
 reward:
   type: continuous
@@ -102,7 +98,7 @@ baseline:
   api: https://router.huggingface.co/v1
   avg_reward_per_step: 0.62
   total_reward_12_tasks: 7.44
-  runtime_seconds: "<1200"
+  runtime_seconds: 1200
 
 runtime:
   cpu: 2
@@ -111,6 +107,6 @@ runtime:
   docker_image: python:3.11-slim
 
 log_format:
-  start: "[START] TrustOps-Env inference started. Tasks: {n}, Model: {model}"
+  start: "[START] {name} inference started. Tasks: {n}, Model: {model}"
   step:  "[STEP] step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
   end:   "[END] steps={n} | total_reward={r:.3f} | avg_reward={avg} | elapsed={t}s"
