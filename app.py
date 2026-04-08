@@ -16,6 +16,7 @@ Architecture: Backend → Log Wrapper → Gradio Dashboard
 import gradio as gr
 import asyncio
 import json
+import os
 from datetime import datetime
 from models import (
     Content, Observation, Action, RewardRecord, EscalationTicket,
@@ -688,8 +689,8 @@ Real-time view of AI agent reinforcement learning moderation loops — tracking 
 if __name__ == "__main__":
     demo.queue()
     demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
+        server_name=os.getenv("SERVER_HOST", "0.0.0.0"),
+        server_port=int(os.getenv("PORT", "7860")),
         show_error=True,
         favicon_path=None
     )

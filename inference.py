@@ -14,10 +14,10 @@ from openai import OpenAI
 from engine import MyEnv
 from models import Action, ActionType
 
-# ─── API Configuration ───────────────────────────────────────────────────────
-API_BASE_URL = "https://router.huggingface.co/v1"
-MODEL_NAME   = "Qwen/Qwen2.5-72B-Instruct"
-HF_TOKEN     = os.getenv("HF_TOKEN", "")  # Set via environment variable; never hard-code.
+# ─── API Configuration (all values read from environment — never hardcoded) ───
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN",     "")  # Required — set via env var or HF Spaces Secret
 
 # ─── Prompts ─────────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are TrustOps-Agent, an expert content moderation AI.
