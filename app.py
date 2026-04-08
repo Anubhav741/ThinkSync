@@ -19,17 +19,15 @@ except ImportError:
 
 import gradio as gr
 import asyncio
-import json
 import os
 from datetime import datetime
 from typing import AsyncGenerator, Tuple
 
 from models import (
-    Content, Observation, Action, RewardRecord, EscalationTicket,
-    ActionType, Difficulty, ContentLabel, CONTENT_BANK
+    Content, Action, RewardRecord, EscalationTicket,
+    ActionType
 )
 from engine import MyEnv, classify_content, grade_action, create_escalation
-from config import CONFIG
 
 # ─── Global Environment Instance ───────────────────────────────────────────
 # Ensuring singleton pattern for environment persistence

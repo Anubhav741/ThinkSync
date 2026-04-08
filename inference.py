@@ -9,6 +9,13 @@ Runtime target: < 20 minutes.
 import os
 import time
 import json
+import warnings
+try:
+    from urllib3.exceptions import NotOpenSSLWarning
+    warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
+except ImportError:
+    pass
+
 from openai import OpenAI
 
 from engine import MyEnv
