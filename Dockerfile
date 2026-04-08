@@ -38,6 +38,6 @@ COPY --chown=trustops:trustops . .
 # Expose the dashboard port
 EXPOSE 7860
 
-# Default command: run inference for OpenEnv evaluation
-# Use "python app.py" if you want to launch the Gradio dashboard instead
-CMD ["python", "inference.py"]
+# Default command: launch the Gradio dashboard to satisfy HF health checks
+# You can still run 'python inference.py' internally for pure OpenEnv logging
+CMD ["python", "app.py"]
