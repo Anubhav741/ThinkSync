@@ -21,45 +21,16 @@ from models import (
 )
 
 # ─── Secure Environment ─────────────────────────────────────────────────────
+from config import CONFIG
+
+# ─── Secure Environment ─────────────────────────────────────────────────────
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
-# ─── Expert Reasoning Embeddings (Simulated) ────────────────────────────────
-# In production, these would be real sentence-transformer embeddings.
-# Here we store reference reasoning strings per label for similarity scoring.
-EXPERT_REASONING: Dict[str, str] = {
-    "SPAM": "Content exhibits classic spam indicators: all-caps text, excessive punctuation, urgency language, and suspicious URLs. Binary classification with high confidence.",
-    "SAFE": "Content is benign personal expression with no policy violations, harmful intent, or misleading information. Standard safe-to-publish classification.",
-    "ABUSIVE": "Content contains direct personal attacks, dehumanizing language, or explicit threats targeting an individual. Violates hate speech and harassment policies.",
-    "CONTEXT-DEPENDENT": "Content uses aggressive or violent language but within a clearly non-harmful context such as gaming, sports, or humor. Requires contextual interpretation of tone and intent.",
-    "AMBIGUOUS": "Content uses language that could be interpreted as threatening or harmful but may also be colloquial slang, sports terminology, or cultural expression. Insufficient context for confident binary classification. Escalation recommended.",
-    "CODED-LANGUAGE": "Content employs metaphorical or coded phrases that may function as dog-whistles or veiled hate speech to in-group audiences while appearing benign to outsiders. Requires specialized cultural and linguistic analysis.",
-    "WHISTLEBLOWER": "Content appears to contain leaked confidential information exposing potential misconduct. Legal and ethical analysis required — content may be critically important public interest material or may violate privacy and confidentiality laws."
-}
-
-
-# ─── Spam Detection Patterns ────────────────────────────────────────────────
-SPAM_PATTERNS = [
-    r"buy\s+(cheap|free|now)",
-    r"click\s+here",
-    r"free\s+(iphone|gift|money|prize)",
-    r"send\s+(your|ur)\s+(credit\s+card|bank|password)",
-    r"(💰|🎁|🎯){2,}",
-    r"!!!+",
-    r"(follow(ers)?|likes?|subscribers?)\s*(for\s*)?(free|cheap|sale|now)",
-]
-
-ABUSE_PATTERNS = [
-    r"worthless\s+(excuse|human|person|piece)",
-    r"everyone\s+hates\s+you",
-    r"(should|need\s+to)\s+(just\s+)?(disappear|die|kill)",
-    r"(scum|trash|garbage|waste)\s+of\s+(a\s+)?(human|person|society)",
-]
-
-THREAT_SOFTENERS = [
-    r"(chess|game|tournament|match|contest|competition)",
-    r"(😂|🤣|😄|😆|lol|lmao|haha|jk|just\s+kidding)",
-    r"(sports?|team|season|play(ing|s)?|score)",
-]
+# ─── Configuration Proxies ───
+EXPERT_REASONING = CONFIG["expert_reasoning"]
+SPAM_PATTERNS   = CONFIG["spam_patterns"]
+ABUSE_PATTERNS  = CONFIG["abuse_patterns"]
+THREAT_SOFTENERS = CONFIG["threat_softeners"]
 
 
 def _compute_spam_score(text: str) -> float:
@@ -154,7 +125,7 @@ def classify_content(content: Content) -> Tuple[ContentLabel, ActionType, str, f
     }
     
     # ── EASY: Spam Detection ──
-    if spam_score > 0.4:
+    if spam_score > CONFIG["spam_threshold"]:
         reasoning = (
             f"[Rule-Based Grader] Spam probability: {spam_score:.1%}. "
             f"Content exhibits classic spam indicators — urgency language, excessive punctuation, "
@@ -164,7 +135,7 @@ def classify_content(content: Content) -> Tuple[ContentLabel, ActionType, str, f
         return ContentLabel.SPAM, ActionType.REMOVE, reasoning, 0.95, metrics
     
     # ── EASY: Clear Safe Content ──
-    if toxicity_score < 0.05 and spam_score < 0.1 and not content.has_nuance:
+    if toxicity_score < CONFIG["safe_max_threshold"] and spam_score < 0.1 and not content.has_nuance:
         reasoning = (
             f"[Rule-Based Grader] Toxicity baseline: {toxicity_score:.1%}, Spam: {spam_score:.1%}. "
             f"Content is benign personal expression with no policy violations or harmful intent. "
@@ -173,7 +144,7 @@ def classify_content(content: Content) -> Tuple[ContentLabel, ActionType, str, f
         return ContentLabel.SAFE, ActionType.APPROVE, reasoning, 0.92, metrics
     
     # ── MEDIUM: Clear Abuse ──
-    if toxicity_score > 0.3 and softener_hits == 0:
+    if toxicity_score > CONFIG["abuse_threshold"] and softener_hits == 0:
         reasoning = (
             f"[Policy-Matching Grader] Toxicity baseline: {toxicity_score:.1%}. "
             f"Content contains direct personal attacks or dehumanizing language with zero contextual softeners. "

@@ -22,19 +22,15 @@ from models import (
     Content, Observation, Action, RewardRecord, EscalationTicket,
     ActionType, Difficulty, ContentLabel, CONTENT_BANK
 )
-from engine import classify_content, grade_action, create_escalation
+from engine import MyEnv, classify_content, grade_action, create_escalation
+from config import CONFIG
 
+# ─── Global Environment Instance ───────────────────────────────────────────
+# Direct binding to the programmatic environment class
+env = MyEnv()
+env.reset()
 
-# ─── Global Environment State ───────────────────────────────────────────────
-
-env_state = Observation(
-    content_queue=list(CONTENT_BANK),
-    moderation_log=[],
-    step_count=0,
-    cumulative_reward=0.0,
-    episode_active=True
-)
-
+# Reactive trackers for UI components
 escalation_queue: list[EscalationTicket] = []
 reward_history: list[RewardRecord] = []
 processed_content_history: list[dict] = []
@@ -235,21 +231,22 @@ label {
 # ─── Helper: Build Metrics Display ──────────────────────────────────────────
 
 def _build_stats_markdown() -> str:
+    state = env.state()
     total = len(CONTENT_BANK)
-    processed = env_state.step_count
-    remaining = len(env_state.content_queue)
-    avg_reward = env_state.cumulative_reward / max(processed, 1)
+    processed = state.step_count
+    remaining = len(state.content_queue)
+    avg_reward = state.cumulative_reward / max(processed, 1)
     esc_count = len(escalation_queue)
     
     # Count action distribution
-    approves = sum(1 for r in env_state.moderation_log if r.get("action") == "approve")
-    removes = sum(1 for r in env_state.moderation_log if r.get("action") == "remove")
-    flags = sum(1 for r in env_state.moderation_log if r.get("action") == "flag")
+    approves = sum(1 for r in state.moderation_log if r.get("action") == "approve")
+    removes = sum(1 for r in state.moderation_log if r.get("action") == "remove")
+    flags = sum(1 for r in state.moderation_log if r.get("action") == "flag")
     
     # Count difficulty distribution of processed
-    easy_done = sum(1 for r in env_state.moderation_log if r.get("difficulty") == "EASY")
-    med_done = sum(1 for r in env_state.moderation_log if r.get("difficulty") == "MEDIUM")
-    hard_done = sum(1 for r in env_state.moderation_log if r.get("difficulty") == "HARD")
+    easy_done = sum(1 for r in state.moderation_log if r.get("difficulty") == "EASY")
+    med_done = sum(1 for r in state.moderation_log if r.get("difficulty") == "MEDIUM")
+    hard_done = sum(1 for r in state.moderation_log if r.get("difficulty") == "HARD")
     
     false_neg = sum(1 for r in reward_history if r.penalty_type == "false_negative")
     false_pos = sum(1 for r in reward_history if r.penalty_type == "false_positive")
@@ -266,7 +263,7 @@ def _build_stats_markdown() -> str:
 
 <div style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05)); border:1px solid rgba(16,185,129,0.25); border-radius:12px; padding:16px; text-align:center;">
 <div style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; font-weight:600;">Cumulative</div>
-<div style="font-size:1.8rem; font-weight:800; color:#34d399; margin:4px 0;">{env_state.cumulative_reward:+.2f}</div>
+<div style="font-size:1.8rem; font-weight:800; color:#34d399; margin:4px 0;">{state.cumulative_reward:+.2f}</div>
 <div style="font-size:0.72rem; color:#64748b;">avg: {emoji_reward} {avg_reward:+.2f}</div>
 </div>
 
@@ -303,11 +300,12 @@ def _build_stats_markdown() -> str:
 
 def _build_queue_preview() -> str:
     """Builds a visual preview of the upcoming content queue."""
-    if not env_state.content_queue:
+    state = env.state()
+    if not state.content_queue:
         return '<div style="text-align:center; padding:24px; color:#64748b;">📭 Queue empty — all content processed.</div>'
     
     items = []
-    for i, c in enumerate(env_state.content_queue[:5]):
+    for i, c in enumerate(state.content_queue[:5]):
         diff_colors = {"EASY": "#10b981", "MEDIUM": "#f59e0b", "HARD": "#ef4444"}
         diff_emojis = {"EASY": "🟢", "MEDIUM": "🟡", "HARD": "🔴"}
         color = diff_colors.get(c.difficulty.value, "#94a3b8")
@@ -327,7 +325,7 @@ def _build_queue_preview() -> str:
 <div style="font-size:0.82rem; color:#cbd5e1; line-height:1.4;">"{text_preview}"</div>
 </div>""")
     
-    remaining_extra = len(env_state.content_queue) - 5
+    remaining_extra = len(state.content_queue) - 5
     extra = ""
     if remaining_extra > 0:
         extra = f'<div style="text-align:center; font-size:0.72rem; color:#64748b; padding:6px;">+{remaining_extra} more in queue</div>'
@@ -532,21 +530,18 @@ async def observability_logger(content: Content):
     yield log, _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
     await asyncio.sleep(0.6)
     
-    # ═══ [END] ═══
-    # Update global observation state
-    env_state.moderation_log.append({
-        "task_id": content.id,
-        "action": agent_action.value,
-        "label": label.value,
-        "difficulty": content.difficulty.value,
-        "confidence": agent_confidence,
-        "reward": reward.total_score,
-        "reasoning": reasoning[:100],
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-    })
-    env_state.step_count += 1
-    env_state.cumulative_reward = round(env_state.cumulative_reward + reward.total_score, 3)
+    # ── ADVANCE ENVIRONMENT ──
+    # Step the environment with the agent's action
+    action_obj = Action(
+        content_id=content.id,
+        action_type=agent_action,
+        reasoning_chain=reasoning,
+        confidence_score=agent_confidence
+    )
+    env.step(action_obj)
+    state = env.state()
     
+    # ═══ [END] ═══
     processed_content_history.append({
         "id": content.id,
         "text": content.text[:50],
@@ -558,54 +553,63 @@ async def observability_logger(content: Content):
     
     ts_end = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     log += f"{'═'*60}\n"
-    log += f"[END] {ts_end}  Step #{env_state.step_count} concluded.\n"
+    log += f"[END] {ts_end}  Step #{state.step_count} concluded.\n"
     log += f"  ├─ Action       : {a_emoji} {agent_action.value.upper()}\n"
     log += f"  ├─ Step Reward  : {sign}{reward.total_score}\n"
-    log += f"  ├─ Cumulative   : {env_state.cumulative_reward:+.3f}\n"
-    log += f"  └─ Queue Left   : {len(env_state.content_queue)}\n"
+    log += f"  ├─ Cumulative   : {state.cumulative_reward:+.3f}\n"
+    log += f"  └─ Queue Left   : {len(state.content_queue)}\n"
     log += f"{'═'*60}\n"
     
-    if not env_state.content_queue:
-        env_state.episode_active = False
-        log += f"\n🏁 EPISODE COMPLETE — All {env_state.step_count} tasks processed.\n"
-        avg = env_state.cumulative_reward / env_state.step_count
-        log += f"   Final Score: {env_state.cumulative_reward:+.3f}  |  Average: {avg:+.3f}\n"
+    if not state.content_queue:
+        log += f"\n🏁 EPISODE COMPLETE — All {state.step_count} tasks processed.\n"
+        avg = state.cumulative_reward / max(state.step_count, 1)
+        log += f"   Final Score: {state.cumulative_reward:+.3f}  |  Average: {avg:+.3f}\n"
     
     yield log, _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
 
 
 async def run_single_step():
     """Wrapper: pops next content from queue and triggers the async generator."""
-    if not env_state.content_queue:
+    state = env.state()
+    if not state.content_queue:
         msg = "═══════════════════════════════════════════════════\n"
         msg += "📭 PIPELINE COMPLETE\n"
-        msg += f"   All {env_state.step_count} tasks have been processed.\n"
-        msg += f"   Cumulative Reward: {env_state.cumulative_reward:+.3f}\n"
+        msg += f"   All {state.step_count} tasks have been processed.\n"
+        msg += f"   Cumulative Reward: {state.cumulative_reward:+.3f}\n"
         msg += "═══════════════════════════════════════════════════\n"
         yield msg, _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
         return
     
-    content = env_state.content_queue.pop(0)
-    async for result in observability_logger(content):
-        yield result
+    try:
+        content = state.content_queue[0]  # Just peek, logger will handle logic
+        async for result in observability_logger(content):
+            yield result
+    except Exception as e:
+        yield f"⚠️ CRITICAL ERROR: {str(e)}\n\nCheck logs for details.", _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
 
 
 async def run_all_steps():
     """Runs through ALL remaining content in the queue sequentially."""
     last_result = None
-    while env_state.content_queue:
-        content = env_state.content_queue.pop(0)
-        async for result in observability_logger(content):
-            last_result = result
-            yield result
-        await asyncio.sleep(0.4)
+    while env.state().content_queue:
+        state = env.state()
+        content = state.content_queue[0]
+        try:
+            async for result in observability_logger(content):
+                last_result = result
+                yield result
+            await asyncio.sleep(0.4)
+        except Exception as e:
+            yield f"⚠️ PIPELINE INTERRUPTED: {str(e)}", _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
+            break
     
     # Final summary
+    state = env.state()
     log = last_result[0] if last_result else ""
     log += "\n\n" + "🏆" * 20 + "\n"
-    log += f"  FULL EPISODE COMPLETE — {env_state.step_count} tasks processed.\n"
-    avg = env_state.cumulative_reward / max(env_state.step_count, 1)
-    log += f"  Final Cumulative: {env_state.cumulative_reward:+.3f}  |  Average: {avg:+.3f}\n"
+    log += f"  FULL EPISODE COMPLETE — {state.step_count} tasks processed.\n"
+    avg = state.cumulative_reward / max(state.step_count, 1)
+    log += f"  Final Cumulative: {state.cumulative_reward:+.3f}  |  Average: {avg:+.3f}\n"
     log += "🏆" * 20 + "\n"
     yield log, _build_stats_markdown(), _build_queue_preview(), _build_reward_table(), _build_escalation_panel()
 
@@ -613,11 +617,7 @@ async def run_all_steps():
 def reset_environment():
     """Resets the entire environment to initial state."""
     global escalation_queue, reward_history, processed_content_history
-    env_state.content_queue = list(CONTENT_BANK)
-    env_state.moderation_log = []
-    env_state.step_count = 0
-    env_state.cumulative_reward = 0.0
-    env_state.episode_active = True
+    env.reset()
     escalation_queue = []
     reward_history = []
     processed_content_history = []
