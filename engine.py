@@ -261,7 +261,8 @@ def grade_action(
     expected_label = content.expected_label
     
     # ── Classification Score (+0.5) ──
-    classification_correct = (agent_action == expected_action) or (agent_action == ActionType.FLAG)
+    # SECURITY FIX: Removed the flag-everything hack.
+    classification_correct = (agent_action == expected_action)
     c_score = 0.5 if classification_correct else 0.0
     
     # ── Action Score (+0.3) ──
@@ -274,15 +275,38 @@ def grade_action(
     
     # ── Reasoning Quality Score (+0.2) ──
     r_score = 0.0
-    if difficulty in (Difficulty.MEDIUM, Difficulty.HARD):
+    
+    # ENHANCED TASK & GRADER LOGIC
+    # Final decision gives c_score(0.5) + a_score(0.3) = 0.8
+    if difficulty == Difficulty.EASY:
+        # Task 1 (Easy): Simple Toxicity Detection
+        # +0.2 partial reward for correctly identifying toxic/abusive flags in reasoning.
+        toxic_words = ["toxic", "abusive", "hate", "spam", "violation"]
+        word_found = any(word in agent_reasoning.lower() for word in toxic_words)
+        if word_found:
+            r_score = 0.2
+
+    elif difficulty == Difficulty.MEDIUM:
+        # Task 2 (Medium): Contextual Sentiment Analysis
+        # Agent must distinguish between "sarcastic frustration" (allow) and "targeted harassment" (block).
+        # We give partial points based on capturing context in the reasoning.
+        context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
+        if any(word in agent_reasoning.lower() for word in context_words):
+             r_score += 0.1
         similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        
-        if difficulty == Difficulty.HARD:
-            # Full embedding evaluation — up to +0.2
-            r_score = round(min(0.2, similarity * 0.25), 3)
-        else:
-            # MEDIUM: initial reasoning assessment — up to +0.1
-            r_score = round(min(0.1, similarity * 0.15), 3)
+        r_score += round(min(0.1, similarity * 0.15), 3)
+        r_score = min(0.2, r_score)
+
+    elif difficulty == Difficulty.HARD:
+        # Task 3 (Hard): Multi-Turn Moderation
+        # Agent must analyze conversation history to find subtle grooming or radicalization patterns.
+        # We check for deeper reasoning analysis.
+        hard_words = ["grooming", "radicalization", "pattern", "history", "subtle", "manipulation", "coded", "leaked", "whistleblower"]
+        if any(word in agent_reasoning.lower() for word in hard_words):
+             r_score += 0.1
+        similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
+        r_score += round(min(0.1, similarity * 0.25), 3)
+        r_score = min(0.2, r_score)
 
     # ── Penalty Computation ──
     penalty = 0.0
@@ -329,3 +353,69 @@ def create_escalation(content: Content, reasoning: str) -> EscalationTicket:
         content_text=content.text,
         reason=reason
     )
+
+
+# ─── OpenEnv Interface ──────────────────────────────────────────────────────
+
+from models import Observation, CONTENT_BANK
+
+class MyEnv:
+    """
+    OpenEnv compatible class that wraps the moderation engine.
+    Implements reset(), step(action), and state().
+    """
+    def __init__(self):
+        self._state = Observation()
+        self._is_done = False
+
+    def reset(self) -> Observation:
+        """Resets the environment and returns the initial state."""
+        self._state = Observation(
+            content_queue=list(CONTENT_BANK),
+            moderation_log=[],
+            step_count=0,
+            cumulative_reward=0.0,
+            episode_active=True
+        )
+        self._is_done = False
+        return self._state
+
+    def step(self, action: Action) -> Tuple[Observation, float, bool, Dict]:
+        """
+        Takes an Action object (Pydantic model) and advances the environment.
+        Returns: (state, reward_score, done, info_dict)
+        """
+        if not self._state.episode_active or not self._state.content_queue:
+            self._is_done = True
+            self._state.episode_active = False
+            return self._state, 0.0, True, {}
+
+        # Default reward if content is invalid
+        reward_score = 0.0
+
+        content = next((c for c in self._state.content_queue if c.id == action.content_id), None)
+        if content:
+            # Grade action
+            reward: RewardRecord = grade_action(
+                content=content,
+                agent_action=action.action_type,
+                agent_reasoning=action.reasoning_chain,
+                agent_confidence=action.confidence_score
+            )
+            reward_score = reward.total_score
+            self._state.cumulative_reward += reward_score
+            self._state.step_count += 1
+            self._state.moderation_log.append({"action": action.dict(), "reward": reward.dict()})
+            
+            # Remove from queue
+            self._state.content_queue = [c for c in self._state.content_queue if c.id != content.id]
+        
+        if not self._state.content_queue:
+            self._state.episode_active = False
+            self._is_done = True
+
+        return self._state, reward_score, self._is_done, {}
+
+    def state(self) -> Observation:
+        """Returns the current structural state of the environment."""
+        return self._state

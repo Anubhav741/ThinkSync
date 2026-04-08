@@ -1,0 +1,116 @@
+name: TrustOps-Env
+version: "1.0.0"
+description: >
+  A programmatic content moderation reinforcement learning environment
+  that evaluates AI agents on three progressively complex tasks:
+  simple toxicity detection, contextual sentiment analysis, and
+  multi-turn moderation with coded/radicalization pattern detection.
+
+author: Anubhav741
+license: MIT
+homepage: https://github.com/Anubhav741/ThinkSync
+
+environment:
+  module: engine
+  class: MyEnv
+  entry_point: inference.py
+
+tasks:
+  - id: task_easy
+    name: "Task 1 — Simple Toxicity Detection"
+    difficulty: easy
+    description: >
+      The agent must classify content as spam/abusive (remove) or safe (approve).
+      Clear-cut cases: ALL-CAPS spam, direct hate speech, and obvious safe posts.
+    examples:
+      - text: "BUY CHEAP FOLLOWERS NOW!!! 💰💰💰 CLICK HERE!!!"
+        expected_action: remove
+        expected_label: SPAM
+      - text: "Had a great lunch today — the new café is amazing."
+        expected_action: approve
+        expected_label: SAFE
+
+  - id: task_medium
+    name: "Task 2 — Contextual Sentiment Analysis"
+    difficulty: medium
+    description: >
+      The agent must distinguish sarcastic frustration / gaming banter (approve)
+      from targeted harassment directed at a real person (remove).
+      Context signals: emojis, game references, humor markers.
+    examples:
+      - text: "I'm going to absolutely DESTROY you... in this chess game tonight 😂"
+        expected_action: approve
+        expected_label: CONTEXT-DEPENDENT
+      - text: "You're a worthless excuse for a human being and everyone hates you."
+        expected_action: remove
+        expected_label: ABUSIVE
+
+  - id: task_hard
+    name: "Task 3 — Multi-Turn Moderation (Coded Language)"
+    difficulty: hard
+    description: >
+      The agent must identify subtle grooming/radicalization patterns,
+      coded metaphorical language, and whistleblower material.
+      When confidence is low, the agent must flag for human review.
+    examples:
+      - text: "Those people have been poisoning the well for years and we need to clean house."
+        expected_action: flag
+        expected_label: CODED-LANGUAGE
+      - text: "LEAKED: Internal documents show executives covered up safety violations for 3 years."
+        expected_action: flag
+        expected_label: WHISTLEBLOWER
+
+action_space:
+  type: discrete
+  values:
+    - approve
+    - remove
+    - flag
+  schema:
+    content_id:       string   # References Content.id
+    action_type:      enum     # approve | remove | flag
+    reasoning_chain:  string   # Step-by-step justification
+    confidence_score: float    # 0.0 – 1.0
+
+observation_space:
+  type: structured
+  schema:
+    content_queue:      list[Content]   # Posts awaiting moderation
+    moderation_log:     list[dict]      # History of all decisions and rewards
+    step_count:         int             # Steps completed in current episode
+    cumulative_reward:  float           # Running reward total
+    episode_active:     bool            # Whether the episode is still running
+
+reward:
+  type: continuous
+  range: [-0.2, 1.0]
+  description: >
+    Reward is decomposed into three components:
+      +0.5 Classification Score (correct action type)
+      +0.3 Action Score (exact match with expected action)
+      +0.2 Reasoning Score (quality of chain-of-thought, partial credit)
+    Penalties:
+      -0.2 False Negative (approved harmful content)
+      -0.1 False Positive (removed safe content)
+    Partial Progress Signals:
+      EASY:   +0.2 for identifying toxic keywords in reasoning
+      MEDIUM: +0.1 for capturing sarcasm/context cues in reasoning
+      HARD:   +0.1 for identifying coded language / radicalization patterns
+
+baseline:
+  model: Qwen/Qwen2.5-72B-Instruct
+  api: https://router.huggingface.co/v1
+  avg_reward_per_step: 0.62
+  total_reward_12_tasks: 7.44
+  runtime_seconds: "<1200"
+
+runtime:
+  cpu: 2
+  ram_gb: 8
+  timeout_seconds: 1200
+  docker_image: python:3.11-slim
+
+log_format:
+  start: "[START] TrustOps-Env inference started. Tasks: {n}, Model: {model}"
+  step:  "[STEP] step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
+  end:   "[END] steps={n} | total_reward={r:.3f} | avg_reward={avg} | elapsed={t}s"
