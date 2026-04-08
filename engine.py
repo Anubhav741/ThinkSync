@@ -14,7 +14,7 @@ import os
 import re
 import math
 import random
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Any, Union
 from models import (
     Content, Action, RewardRecord, EscalationTicket,
     ActionType, Difficulty, ContentLabel, EscalationStatus
@@ -332,61 +332,94 @@ from models import Observation, CONTENT_BANK
 
 class MyEnv:
     """
-    OpenEnv compatible class that wraps the moderation engine.
+    OpenEnv-compliant class that wraps the moderation engine.
     Implements reset(), step(action), and state().
     """
     def __init__(self):
         self._state = Observation()
         self._is_done = False
 
-    def reset(self) -> Observation:
-        """Resets the environment and returns the initial state."""
+    def reset(self) -> Dict:
+        """Resets the environment and returns the initial state formatted for OpenEnv."""
         self._state = Observation(
+            id=CONTENT_BANK[0].id,
+            content=CONTENT_BANK[0].text,
             content_queue=list(CONTENT_BANK),
             moderation_log=[],
             step_count=0,
             cumulative_reward=0.0,
-            episode_active=True
+            episode_active=True,
+            done=False,
+            metadata={"version": "1.0.0"}
         )
         self._is_done = False
-        return self._state
+        return {"observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict()}
 
-    def step(self, action: Action) -> Tuple[Observation, float, bool, Dict]:
+    def step(self, action: Any) -> Dict:
         """
-        Takes an Action object (Pydantic model) and advances the environment.
-        Returns: (state, reward_score, done, info_dict)
+        Takes an Action (dict or object) and advances the environment.
+        Returns: { "observation": ..., "reward": ..., "done": ..., "info": ... }
         """
+        from models import Action, ActionType
+        
+        # Convert dict input to Action if necessary
+        if isinstance(action, dict):
+            try:
+                action_obj = Action(**action)
+            except:
+                action_obj = Action(
+                    content_id=action.get("content_id", ""),
+                    action_type=ActionType(action.get("action_type", "flag")),
+                    reasoning_chain=action.get("reasoning_chain", ""),
+                    confidence_score=float(action.get("confidence_score", 0.5))
+                )
+        else:
+            action_obj = action
+
         if not self._state.episode_active or not self._state.content_queue:
-            self._is_done = True
-            self._state.episode_active = False
-            return self._state, 0.0, True, {}
+            self._state.done = True
+            print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
+            return {
+                "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
+                "reward": 0.0,
+                "done": True,
+                "info": {}
+            }
 
-        # Default reward if content is invalid
         reward_score = 0.0
-
-        content = next((c for c in self._state.content_queue if c.id == action.content_id), None)
+        content = next((c for c in self._state.content_queue if c.id == action_obj.content_id), None)
+        
         if content:
-            # Grade action
-            reward: RewardRecord = grade_action(
+            reward_rec = grade_action(
                 content=content,
-                agent_action=action.action_type,
-                agent_reasoning=action.reasoning_chain,
-                agent_confidence=action.confidence_score
+                agent_action=action_obj.action_type,
+                agent_reasoning=action_obj.reasoning_chain,
+                agent_confidence=action_obj.confidence_score
             )
-            reward_score = reward.total_score
+            reward_score = reward_rec.total_score
             self._state.cumulative_reward += reward_score
             self._state.step_count += 1
-            self._state.moderation_log.append({"action": action.dict(), "reward": reward.dict()})
-            
-            # Remove from queue
+            self._state.moderation_log.append({"action": action_obj.dict(), "reward": reward_rec.dict()})
             self._state.content_queue = [c for c in self._state.content_queue if c.id != content.id]
-        
-        if not self._state.content_queue:
-            self._state.episode_active = False
-            self._is_done = True
 
-        return self._state, reward_score, self._is_done, {}
+        # Update next observation
+        if self._state.content_queue:
+            self._state.id = self._state.content_queue[0].id
+            self._state.content = self._state.content_queue[0].text
+        else:
+            self._state.id = ""
+            self._state.content = ""
+            self._state.done = True
+            self._state.episode_active = False
+            print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
+
+        return {
+            "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
+            "reward": float(reward_score),
+            "done": bool(self._state.done),
+            "info": {}
+        }
 
     def state(self) -> Observation:
-        """Returns the current structural state of the environment."""
+        """Returns the current structural state for UI dashboard purposes."""
         return self._state

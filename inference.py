@@ -91,18 +91,32 @@ def run_inference():
     )
 
     env = MyEnv()
-    obs = env.reset()
+    reset_payload = env.reset()
+    obs_dict = reset_payload["observation"]
 
-    total_tasks  = len(obs.content_queue)
+    total_tasks  = len(obs_dict.get("content_queue", []))
     episode_start = time.time()
 
     print(f"[START] ThinkSync inference started. Tasks: {total_tasks}, Model: {MODEL_NAME}")
 
     step_num = 0
-    while obs.episode_active and obs.content_queue:
-        content = obs.content_queue[0]
+    while not obs_dict.get("done", False) and obs_dict.get("content_queue"):
+        content_text = obs_dict.get("content", "")
+        content_id   = obs_dict.get("id", "")
+        difficulty_val = "EASY" 
 
-        user_prompt = build_user_prompt(content.text, content.difficulty.value)
+        # Locate content difficulty from objects in queue
+        for c_obj in obs_dict.get("content_queue", []):
+             if isinstance(c_obj, dict):
+                 if c_obj.get("id") == content_id:
+                      difficulty_val = c_obj.get("difficulty", "EASY")
+                      break
+             else: # Pydantic object
+                 if c_obj.id == content_id:
+                      difficulty_val = c_obj.difficulty.value
+                      break
+
+        user_prompt = build_user_prompt(content_text, difficulty_val)
 
         # ── Call model ──
         try:
@@ -131,32 +145,33 @@ def run_inference():
         except ValueError:
             action_type = ActionType.FLAG
 
-        action = Action(
-            content_id       = content.id,
+        action_obj = Action(
+            content_id       = content_id,
             action_type      = action_type,
             reasoning_chain  = parsed.get("reasoning_chain", ""),
             confidence_score = float(parsed.get("confidence_score", 0.5)),
         )
 
-        obs, reward, done, _ = env.step(action)
+        step_payload = env.step(action_obj)
+        obs_dict = step_payload["observation"]
+        reward = step_payload["reward"]
+        done = step_payload["done"]
         step_num += 1
 
         elapsed = round(time.time() - episode_start, 2)
 
         print(
-            f"[STEP] step={step_num} | task_id={content.id} | difficulty={content.difficulty.value} "
-            f"| action={action.action_type.value} | expected={content.expected_action.value} "
-            f"| reward={reward:.3f} | cumulative={obs.cumulative_reward:.3f} | elapsed={elapsed}s"
+            f"[STEP] step={step_num} | task_id={content_id} | difficulty={difficulty_val} "
+            f"| action={action_obj.action_type.value} | expected=N/A "
+            f"| reward={reward:.3f} | cumulative={obs_dict.get('cumulative_reward', 0.0):.3f} | elapsed={elapsed}s"
         )
 
-        # Safety valve: < 20 minutes runtime
         if elapsed > 1100:
-            print(f"[STEP] TIMEOUT: elapsed {elapsed}s > 1100s limit. Stopping early.")
             break
 
     elapsed_total = round(time.time() - episode_start, 2)
-    steps_done    = obs.step_count
-    total_reward  = obs.cumulative_reward
+    steps_done    = obs_dict.get("step_count", step_num)
+    total_reward  = obs_dict.get("cumulative_reward", 0.0)
     avg_reward    = round(total_reward / max(steps_done, 1), 4)
 
     print(

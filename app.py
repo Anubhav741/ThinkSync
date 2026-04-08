@@ -279,31 +279,12 @@ try:
 
     @api.post("/reset")
     async def openenv_reset():
-        state = _env_instance.reset()
-        obs = state.model_dump() if hasattr(state, "model_dump") else state.dict()
-        return {"observation": obs}
+        return _env_instance.reset()
 
     @api.post("/step")
     async def openenv_step(req: fastapi.Request):
         data = await req.json()
-        from models import Action, ActionType
-        try:
-            at = ActionType(data.get("action_type", "flag"))
-        except:
-            at = ActionType.FLAG
-        act = Action(
-            content_id=data.get("content_id", ""),
-            action_type=at,
-            reasoning_chain=data.get("reasoning_chain", ""),
-            confidence_score=float(data.get("confidence_score", 0.5))
-        )
-        obs, reward, done, info = _env_instance.step(act)
-        return {
-            "observation": obs.model_dump() if hasattr(obs, "model_dump") else obs.dict(),
-            "reward": reward,
-            "done": done,
-            "info": info
-        }
+        return _env_instance.step(data)
 
     api = gr.mount_gradio_app(api, demo, path="/")
     uvicorn.run(api, host=os.getenv("SERVER_HOST", "0.0.0.0"), port=int(os.getenv("PORT", "7860")))

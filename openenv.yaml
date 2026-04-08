@@ -29,11 +29,14 @@ action_space:
 observation_space:
   type: structured
   schema:
+    id: { type: string }
+    content: { type: string }
     content_queue: { type: array }
     moderation_log: { type: array }
     step_count: { type: integer }
     cumulative_reward: { type: number }
-    episode_active: { type: boolean }
+    done: { type: boolean }
+    metadata: { type: object }
 
 reward:
   type: continuous

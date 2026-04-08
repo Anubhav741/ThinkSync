@@ -1,0 +1,68 @@
+INFO:     Started server process [53082]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7861 (Press CTRL+C to quit)
+Exception in thread Thread-3:
+Traceback (most recent call last):
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_sync/connection.py", line 156, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_backends/sync.py", line 170, in start_tls
+    raise exc
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py", line 135, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout: _ssl.c:1112: The handshake operation timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/gradio/analytics.py", line 61, in _do_normal_analytics_request
+    data["ip_address"] = get_local_ip_address()
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/gradio/analytics.py", line 117, in get_local_ip_address
+    ip_address = httpx.get(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_api.py", line 195, in get
+    return request(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_api.py", line 109, in request
+    return client.request(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py", line 135, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/anubhavgupta/Library/Python/3.9/lib/python/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout: _ssl.c:1112: The handshake operation timed out
+App started successfully
+IMPORTANT: You are using gradio version 4.26.0, however version 4.44.1 is available, please upgrade.
+--------
+INFO:     127.0.0.1:59583 - "POST /reset HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [53082]

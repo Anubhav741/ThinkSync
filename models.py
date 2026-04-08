@@ -64,11 +64,15 @@ class Content(BaseModel):
 
 class Observation(BaseModel):
     """Full environment state visible to the agent at any step."""
+    content: str = Field(default="", description="The current content text to evaluate")
+    id: str = Field(default="", description="The current content ID")
     content_queue: List[Content] = Field(default_factory=list, description="Posts awaiting moderation")
     moderation_log: List[Dict] = Field(default_factory=list, description="History of all decisions and reasoning")
     step_count: int = Field(default=0, description="Steps completed in current episode")
     cumulative_reward: float = Field(default=0.0, description="Running reward total")
     episode_active: bool = Field(default=True, description="Whether the episode is still running")
+    done: bool = Field(default=False, description="Whether the episode has ended")
+    metadata: Dict = Field(default_factory=dict)
 
 
 class Action(BaseModel):
