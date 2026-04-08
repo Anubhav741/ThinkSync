@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trustops-env"
+version = "0.1.0"
+description = "OpenEnv-based AI moderation environment"
+authors = [{name = "Anubhav"}]
+dependencies = [
+    "gradio",
+    "openai",
+    "pydantic",
+    "PyYAML",
+    "requests",
+    "urllib3"
+]
