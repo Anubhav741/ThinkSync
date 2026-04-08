@@ -236,7 +236,7 @@ try:
         gr.HTML(f'''
         <div style="text-align: left; padding: 40px 20px 20px 20px; max-width: 1200px; margin: 0 auto;">
             <h1 style="color: var(--txt-dark); font-weight: 800; letter-spacing: -1px; margin: 0; font-size: 2.5rem;">TrustOps <span style="color: var(--acc-orange);">Workspace</span></h1>
-            <p style="color: var(--txt-muted); font-weight: 500; font-size: 1.1rem; margin-top: 8px;">A friendly environment for content moderation.</p>
+            <p style="color: var(--txt-muted); font-weight: 500; font-size: 1.1rem; margin-top: 8px;">An OpenEnv-based AI moderation evaluation system.</p>
         </div>
         ''')
         

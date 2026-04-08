@@ -1,5 +1,5 @@
 ---
-title: ThinkSync
+title: TrustOps
 emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
@@ -8,7 +8,7 @@ app_port: 7860
 app_file: app.py
 pinned: false
 ---
-# TrustOps-Env 🛡️
+# TrustOps(ThinkSync) 🛡️
 
 A programmatic **content moderation reinforcement learning environment** built to the [OpenEnv](https://huggingface.co/openenv) specification. Agents are evaluated on three progressively complex moderation tasks.
 
