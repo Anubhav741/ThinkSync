@@ -1,4 +1,4 @@
-name: TrustOps
+name: ThinkSync
 version: "1.0.0"
 description: >
   A programmatic content moderation reinforcement learning environment
@@ -16,9 +16,9 @@ environment:
   entry_point: inference.py
 
 tasks:
-  - id: task_easy
+  - id: task_01
     name: "Task 1 — Simple Toxicity Detection"
-    difficulty: easy
+    difficulty: EASY
     description: >
       The agent must classify content as spam/abusive (remove) or safe (approve).
       Clear-cut cases: ALL-CAPS spam, direct hate speech, and obvious safe posts.
@@ -30,9 +30,9 @@ tasks:
         expected_action: approve
         expected_label: SAFE
 
-  - id: task_medium
+  - id: task_02
     name: "Task 2 — Contextual Sentiment Analysis"
-    difficulty: medium
+    difficulty: MEDIUM
     description: >
       The agent must distinguish sarcastic frustration / gaming banter (approve)
       from targeted harassment directed at a real person (remove).
@@ -45,9 +45,9 @@ tasks:
         expected_action: remove
         expected_label: ABUSIVE
 
-  - id: task_hard
+  - id: task_03
     name: "Task 3 — Multi-Turn Moderation (Coded Language)"
-    difficulty: hard
+    difficulty: HARD
     description: >
       The agent must identify subtle grooming/radicalization patterns,
       coded metaphorical language, and whistleblower material.
@@ -63,39 +63,27 @@ tasks:
 action_space:
   type: structured
   schema:
-    content_id:       string
-    action_type:      string
-    reasoning_chain:  string
-    confidence_score: float
+    content_id: string
+    action_type: string
+    reasoning_chain: string
+    confidence_score: number
 
 observation_space:
   type: structured
   schema:
-    content_queue:      array
-    moderation_log:     array
-    step_count:         integer
-    cumulative_reward:  float
-    episode_active:     boolean
+    content_queue: array
+    moderation_log: array
+    step_count: integer
+    cumulative_reward: number
+    episode_active: boolean
 
 reward:
   type: continuous
   range: [-0.2, 1.0]
-  description: >
-    Reward is decomposed into three components:
-      +0.5 Classification Score (correct action type)
-      +0.3 Action Score (exact match with expected action)
-      +0.2 Reasoning Score (quality of chain-of-thought, partial credit)
-    Penalties:
-      -0.2 False Negative (approved harmful content)
-      -0.1 False Positive (removed safe content)
-    Partial Progress Signals:
-      EASY:   +0.2 for identifying toxic keywords in reasoning
-      MEDIUM: +0.1 for capturing sarcasm/context cues in reasoning
-      HARD:   +0.1 for identifying coded language / radicalization patterns
 
 baseline:
-  model: Qwen/Qwen2.5-72B-Instruct
-  api: https://router.huggingface.co/v1
+  model: "Qwen/Qwen2.5-72B-Instruct"
+  api: "https://router.huggingface.co/v1"
   avg_reward_per_step: 0.62
   total_reward_12_tasks: 7.44
   runtime_seconds: 1200
@@ -104,9 +92,9 @@ runtime:
   cpu: 2
   ram_gb: 8
   timeout_seconds: 1200
-  docker_image: python:3.11-slim
+  docker_image: "python:3.11-slim"
 
 log_format:
   start: "[START] {name} inference started. Tasks: {n}, Model: {model}"
-  step:  "[STEP] step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
-  end:   "[END] steps={n} | total_reward={r:.3f} | avg_reward={avg} | elapsed={t}s"
+  step: "[STEP] step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
+  end: "[END] steps={n} | total_reward={r:.3f} | avg_reward={avg} | elapsed={t}s"
