@@ -8,6 +8,14 @@ Features:
 - Zero-hardcoding (all via config.py or env)
 - Error-resilient workflow
 """
+import warnings
+# Suppress structural/environment warnings for a clean production logs
+warnings.filterwarnings("ignore", category=UserWarning, module="gradio")
+try:
+    from urllib3.exceptions import NotOpenSSLWarning
+    warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
+except ImportError:
+    pass
 
 import gradio as gr
 import asyncio
