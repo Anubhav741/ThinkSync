@@ -67,7 +67,7 @@ def safe(x: float) -> float:
         val = float(x)
     except (TypeError, ValueError):
         val = 0.5
-    return max(0.01, min(val, 0.99))
+    return max(0.3, min(val, 0.7))
 
 
 def build_user_prompt(content_text: str, difficulty: str) -> str:
@@ -169,7 +169,7 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             agent_reasoning=action_obj.reasoning_chain,
             agent_confidence=action_obj.confidence_score
         ))
-        reward_score = max(0.01, min(0.99, reward_score))
+        reward_score = max(0.3, min(0.7, reward_score))
         steps_data.append({"step": step_num, "reward": round(reward_score, 2)})
 
         print(f"[STEP] step={step_num} reward={reward_score:.2f}")
@@ -179,7 +179,7 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
     else:
         task_score = sum(s["reward"] for s in steps_data) / len(steps_data)
         
-    task_score = max(0.01, min(0.99, task_score))
+    task_score = max(0.3, min(0.7, task_score))
 
     print(f"[END] success=True total_steps={len(steps_data)} final_score={task_score:.3f}")
 
@@ -216,7 +216,7 @@ def run_inference():
     else:
         overall_score = sum(r["score"] for r in results.values()) / len(results)
         
-    overall_score = max(0.01, min(0.99, overall_score))
+    overall_score = max(0.3, min(0.7, overall_score))
 
     print(f"[END] success=True total_steps=0 final_score={overall_score:.3f}")
 

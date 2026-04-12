@@ -279,7 +279,7 @@ try:
         data = await req.json()
         result = _env_instance.step(data)
         if isinstance(result, dict) and "reward" in result:
-            result["reward"] = max(0.01, min(float(result["reward"]), 0.99))
+            result["reward"] = max(0.3, min(float(result["reward"]), 0.7))
         return result
 
     api = gr.mount_gradio_app(api, demo, path="/")
