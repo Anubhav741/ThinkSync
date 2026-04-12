@@ -34,17 +34,26 @@ def safe(x: float) -> float:
     return max(0.01, min(val, 0.99))
 
 
+def normalize_score(total_reward, max_reward):
+    raw = total_reward / max_reward
+    if raw <= 0:
+        return 0.01
+    elif raw >= 1:
+        return 0.99
+    return round(raw, 3)
+
+
 # ─── Internal scoring logic (shared by both interfaces) ─────────────────────
 
 def _score_base(content: Content, agent_action: ActionType) -> float:
     expected_action = content.expected_action
     
     if agent_action == expected_action:
-        return safe(0.8) # Good
+        return normalize_score(0.8, 1.0)
     elif agent_action == ActionType.FLAG:
-        return safe(0.5) # Neutral
+        return normalize_score(0.5, 1.0)
     else:
-        return safe(0.2) # Bad
+        return normalize_score(0.2, 1.0)
 
 def _score_easy(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
     return _score_base(content, agent_action)

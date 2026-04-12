@@ -17,7 +17,7 @@ from engine import (
 from models import Content, Difficulty, ContentLabel, ActionType, Action
 from inference import parse_agent_response
 from tasks import list_tasks, get_task, TASK_REGISTRY
-from grader import grade_easy_detection, grade_medium_classification, grade_hard_contextual, _clamp
+from grader import grade_easy_detection, grade_medium_classification, grade_hard_contextual, normalize_score
 
 class TestTrustOpsSystem(unittest.TestCase):
 
@@ -87,8 +87,7 @@ class TestTrustOpsSystem(unittest.TestCase):
         
         fake_action = Action(content_id="GHOST", action_type=ActionType.FLAG, reasoning_chain="", confidence_score=0.1)
         step_result = env.step(fake_action)
-        
-        self.assertEqual(step_result["reward"], 0.0)
+        self.assertEqual(step_result["reward"], 0.01)
         self.assertTrue(step_result["done"])
 
     # ─── 3. OPTIMIZED DATA PATH (HEURISTICS/GRADING) ────────────────────────
@@ -146,11 +145,11 @@ class TestTrustOpsSystem(unittest.TestCase):
 
     def test_score_never_zero_or_one(self):
         """Ensures clamped scores are strictly in (0.01, 0.99)."""
-        self.assertEqual(_clamp(0.0), 0.01)
-        self.assertEqual(_clamp(1.0), 0.99)
-        self.assertEqual(_clamp(-0.5), 0.01)
-        self.assertEqual(_clamp(1.5), 0.99)
-        self.assertEqual(_clamp(0.5), 0.5)
+        self.assertEqual(normalize_score(0.0, 1.0), 0.01)
+        self.assertEqual(normalize_score(1.0, 1.0), 0.99)
+        self.assertEqual(normalize_score(-0.5, 1.0), 0.01)
+        self.assertEqual(normalize_score(1.5, 1.0), 0.99)
+        self.assertEqual(normalize_score(0.5, 1.0), 0.5)
 
     def test_grader_scores_in_valid_range(self):
         """Run all graders and ensure scores are in (0.01, 0.99)."""
@@ -161,16 +160,15 @@ class TestTrustOpsSystem(unittest.TestCase):
             task_name = task_map[difficulty]
             grader_fn = get_task(task_name)["grader"]
             
-            # Test with correct action
             rec = grader_fn(content, content.expected_action, "This is test reasoning with toxic spam context coded leaked", 0.8)
-            self.assertGreaterEqual(rec.total_score, 0.01, f"{content.id} score below 0.01")
-            self.assertLessEqual(rec.total_score, 0.99, f"{content.id} score above 0.99")
+            self.assertGreaterEqual(rec, 0.01, f"{content.id} score below 0.01")
+            self.assertLessEqual(rec, 0.99, f"{content.id} score above 0.99")
             
             # Test with wrong action  
             wrong_action = ActionType.APPROVE if content.expected_action == ActionType.REMOVE else ActionType.REMOVE
             rec2 = grader_fn(content, wrong_action, "", 0.1)
-            self.assertGreaterEqual(rec2.total_score, 0.01, f"{content.id} wrong-action score below 0.01")
-            self.assertLessEqual(rec2.total_score, 0.99, f"{content.id} wrong-action score above 0.99")
+            self.assertGreaterEqual(rec2, 0.01, f"{content.id} wrong-action score below 0.01")
+            self.assertLessEqual(rec2, 0.99, f"{content.id} wrong-action score above 0.99")
 
     # ─── 6. MOCKED CONNECTION TESTING ───────────────────────────────────────
 
@@ -188,8 +186,8 @@ class TestTrustOpsSystem(unittest.TestCase):
         for task_name, task_result in results["tasks"].items():
             self.assertGreaterEqual(task_result["score"], 0.01, f"{task_name} score too low")
             self.assertLessEqual(task_result["score"], 0.99, f"{task_name} score too high")
-        self.assertGreaterEqual(results["overall_score"], 0.01)
-        self.assertLessEqual(results["overall_score"], 0.99)
+        self.assertGreaterEqual(results["score"], 0.01)
+        self.assertLessEqual(results["score"], 0.99)
 
 if __name__ == "__main__":
     unittest.main()

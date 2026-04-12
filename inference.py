@@ -169,13 +169,22 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             agent_reasoning=action_obj.reasoning_chain,
             agent_confidence=action_obj.confidence_score
         ))
+        reward_score = max(0.01, min(0.99, reward_score))
         steps_data.append({"step": step_num, "reward": round(reward_score, 2)})
 
         print(f"[STEP] step={step_num} reward={reward_score:.2f}")
 
     print(f"[END]")
+    
+    if not steps_data:
+        task_score = 0.5
+    else:
+        task_score = sum(s["reward"] for s in steps_data) / len(steps_data)
+        
+    task_score = max(0.01, min(0.99, task_score))
 
     return {
+        "score": task_score,
         "steps": steps_data
     }
 
@@ -203,8 +212,16 @@ def run_inference():
         results[task_name] = result
 
     print(f"[END]")
+    
+    if not results:
+        overall_score = 0.5
+    else:
+        overall_score = sum(r["score"] for r in results.values()) / len(results)
+        
+    overall_score = max(0.01, min(0.99, overall_score))
 
     return {
+        "score": overall_score,
         "tasks": results
     }
 
