@@ -286,9 +286,9 @@ try:
     async def openenv_step(req: fastapi.Request):
         data = await req.json()
         result = _env_instance.step(data)
-        # MANDATORY: clamp reward for OpenEnv — never 0.0 or 1.0
+        # MANDATORY: clamp reward for OpenEnv — never 0.0 or 1.0 (limited to 0.49 per user request)
         if isinstance(result, dict) and "reward" in result:
-            result["reward"] = max(0.01, min(float(result["reward"]), 0.99))
+            result["reward"] = max(0.05, min(float(result["reward"]), 0.49))
         return result
 
     api = gr.mount_gradio_app(api, demo, path="/")

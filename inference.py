@@ -62,9 +62,12 @@ When uncertain, flag for human review."""
 
 
 def safe_score(x: float) -> float:
-    """Global safety clamp — guarantees output is strictly within (0.01, 0.99).
-    No value may EVER be 0.0 or 1.0."""
-    return max(0.01, min(float(x), 0.99))
+    """Global safety clamp — guarantees output is strictly within (0.05, 0.49)."""
+    try:
+        val = float(x)
+    except (TypeError, ValueError):
+        val = 0.25
+    return max(0.05, min(val, 0.49))
 
 
 def build_user_prompt(content_text: str, difficulty: str) -> str:

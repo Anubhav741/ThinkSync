@@ -26,13 +26,13 @@ def _compute_embedding_similarity(agent_reasoning: str, label: str) -> float:
 
 
 def safe_score(x: float) -> float:
-    """Global safety clamp — guarantees output is strictly within (0.01, 0.99).
-    No value may EVER be 0.0 or 1.0."""
+    """Global safety clamp — guarantees output is strictly within (0.05, 0.49)
+    as requested to keep scores away from 1.0 and up to 0.5."""
     try:
         val = float(x)
     except (TypeError, ValueError):
-        val = 0.5
-    return max(0.01, min(val, 0.99))
+        val = 0.25
+    return max(0.05, min(val, 0.49))
 
 
 # ─── Internal scoring logic (shared by both interfaces) ─────────────────────
