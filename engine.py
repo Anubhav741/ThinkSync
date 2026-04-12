@@ -401,7 +401,9 @@ class MyEnv:
             reward_score = reward_rec.total_score
             self._state.cumulative_reward += reward_score
             self._state.step_count += 1
-            self._state.moderation_log.append({"action": action_obj.dict(), "reward": reward_rec.dict()})
+            _action_data = action_obj.model_dump() if hasattr(action_obj, "model_dump") else action_obj.dict()
+            _reward_data = reward_rec.model_dump() if hasattr(reward_rec, "model_dump") else reward_rec.dict()
+            self._state.moderation_log.append({"action": _action_data, "reward": _reward_data})
             self._state.content_queue = [c for c in self._state.content_queue if c.id != content.id]
 
         # Update next observation

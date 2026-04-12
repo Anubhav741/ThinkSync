@@ -69,15 +69,23 @@ def build_user_prompt(content_text: str, difficulty: str) -> str:
 def parse_agent_response(response_text: str) -> dict:
     """Parse JSON from the model response, with fallback."""
     try:
+        if not response_text or not response_text.strip():
+            raise ValueError("Empty response")
         if "```" in response_text:
             start = response_text.find("{")
             end   = response_text.rfind("}") + 1
+            if start == -1 or end == 0:
+                raise ValueError("No JSON block found in markdown")
             response_text = response_text[start:end]
-        return json.loads(response_text)
-    except (json.JSONDecodeError, ValueError):
+        parsed = json.loads(response_text)
+        # Validate it's a dict with at least action_type
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Parsed result is {type(parsed).__name__}, not dict")
+        return parsed
+    except (json.JSONDecodeError, ValueError, TypeError):
         return {
             "action_type": "flag",
-            "reasoning_chain": f"Failed to parse model response: {response_text[:200]}",
+            "reasoning_chain": f"Failed to parse model response: {str(response_text)[:200]}",
             "confidence_score": 0.1
         }
 
