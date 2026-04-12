@@ -46,7 +46,7 @@ observation_space:
 
 reward:
   type: continuous
-  range: [0.05, 0.49]
+  range: [0.0, 1.0]
 
 baseline:
   model: "Qwen/Qwen2.5-72B-Instruct"
