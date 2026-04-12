@@ -25,26 +25,26 @@ def grade_easy_detection(content: Content, agent_action: ActionType,
     """
     expected_action = content.expected_action
 
-    # Classification score (+0.5)
-    c_score = 0.5 if agent_action == expected_action else 0.0
+    # Classification score
+    c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score (+0.3)
-    a_score = 0.3 if agent_action == expected_action else 0.0
+    # Action score
+    a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Reasoning quality (+0.2)
-    r_score = 0.0
+    # Reasoning quality
+    r_score = 0.02
     toxic_words = ["toxic", "abusive", "hate", "spam", "violation", "harmful", "unsafe"]
     if any(word in agent_reasoning.lower() for word in toxic_words):
-        r_score = 0.2
+        r_score = 0.18
 
     # Penalty
     penalty = 0.0
     penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.2
+        penalty = -0.15
         penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.1
+        penalty = -0.08
         penalty_type = "false_positive"
 
     total = _clamp(c_score + a_score + r_score + penalty)
@@ -69,33 +69,33 @@ def grade_medium_classification(content: Content, agent_action: ActionType,
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score (+0.5)
-    c_score = 0.5 if agent_action == expected_action else 0.0
+    # Classification score
+    c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score (+0.3)
-    a_score = 0.3 if agent_action == expected_action else 0.0
+    # Action score
+    a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Flag on genuinely ambiguous content earns full marks
+    # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.5, 0.3
+        c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality (+0.2)
-    r_score = 0.0
+    # Reasoning quality
+    r_score = 0.02
     context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
     if any(word in agent_reasoning.lower() for word in context_words):
-        r_score += 0.1
+        r_score += 0.08
     similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-    r_score += round(min(0.1, similarity * 0.15), 3)
-    r_score = min(0.2, r_score)
+    r_score += round(min(0.08, similarity * 0.15), 3)
+    r_score = min(0.18, r_score)
 
     # Penalty
     penalty = 0.0
     penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.2
+        penalty = -0.15
         penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.1
+        penalty = -0.08
         penalty_type = "false_positive"
 
     total = _clamp(c_score + a_score + r_score + penalty)
@@ -120,34 +120,34 @@ def grade_hard_contextual(content: Content, agent_action: ActionType,
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score (+0.5)
-    c_score = 0.5 if agent_action == expected_action else 0.0
+    # Classification score
+    c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score (+0.3)
-    a_score = 0.3 if agent_action == expected_action else 0.0
+    # Action score
+    a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Flag on genuinely ambiguous content earns full marks
+    # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.5, 0.3
+        c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality (+0.2)
-    r_score = 0.0
+    # Reasoning quality
+    r_score = 0.02
     hard_words = ["grooming", "radicalization", "pattern", "history", "subtle",
                   "manipulation", "coded", "leaked", "whistleblower"]
     if any(word in agent_reasoning.lower() for word in hard_words):
-        r_score += 0.1
+        r_score += 0.08
     similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-    r_score += round(min(0.1, similarity * 0.25), 3)
-    r_score = min(0.2, r_score)
+    r_score += round(min(0.08, similarity * 0.25), 3)
+    r_score = min(0.18, r_score)
 
     # Penalty
     penalty = 0.0
     penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.2
+        penalty = -0.15
         penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.1
+        penalty = -0.08
         penalty_type = "false_positive"
 
     total = _clamp(c_score + a_score + r_score + penalty)

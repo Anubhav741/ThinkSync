@@ -231,63 +231,54 @@ def grade_action(
     expected_action = content.expected_action
     expected_label = content.expected_label
     
-    # ── Classification Score (+0.5) ──
+    # ── Classification Score
     # SECURITY FIX: Removed the flag-everything hack.
     classification_correct = (agent_action == expected_action)
-    c_score = 0.5 if classification_correct else 0.0
+    c_score = 0.45 if classification_correct else 0.1
     
-    # ── Action Score (+0.3) ──
+    # ── Action Score
     action_correct = (agent_action == expected_action)
-    a_score = 0.3 if action_correct else 0.0
+    a_score = 0.28 if action_correct else 0.05
     
-    # Flag on genuinely ambiguous content earns full marks
+    # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.5, 0.3
+        c_score, a_score = 0.45, 0.28
     
-    # ── Reasoning Quality Score (+0.2) ──
-    r_score = 0.0
+    # ── Reasoning Quality Score
+    r_score = 0.02
     
     # ENHANCED TASK & GRADER LOGIC
-    # Final decision gives c_score(0.5) + a_score(0.3) = 0.8
     if difficulty == Difficulty.EASY:
-        # Task 1 (Easy): Simple Toxicity Detection
-        # +0.2 partial reward for correctly identifying toxic/abusive flags in reasoning.
         toxic_words = ["toxic", "abusive", "hate", "spam", "violation"]
         word_found = any(word in agent_reasoning.lower() for word in toxic_words)
         if word_found:
-            r_score = 0.2
+            r_score = 0.18
 
     elif difficulty == Difficulty.MEDIUM:
-        # Task 2 (Medium): Contextual Sentiment Analysis
-        # Agent must distinguish between "sarcastic frustration" (allow) and "targeted harassment" (block).
-        # We give partial points based on capturing context in the reasoning.
         context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
         if any(word in agent_reasoning.lower() for word in context_words):
-             r_score += 0.1
+             r_score += 0.08
         similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.1, similarity * 0.15), 3)
-        r_score = min(0.2, r_score)
+        r_score += round(min(0.08, similarity * 0.15), 3)
+        r_score = min(0.18, r_score)
 
     elif difficulty == Difficulty.HARD:
-        # Task 3 (Hard): Multi-Turn Moderation
-        # Agent must analyze conversation history to find subtle grooming or radicalization patterns.
-        # We check for deeper reasoning analysis.
         hard_words = ["grooming", "radicalization", "pattern", "history", "subtle", "manipulation", "coded", "leaked", "whistleblower"]
         if any(word in agent_reasoning.lower() for word in hard_words):
-             r_score += 0.1
+             r_score += 0.08
         similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.1, similarity * 0.25), 3)
-        r_score = min(0.2, r_score)
+        r_score += round(min(0.08, similarity * 0.25), 3)
+        r_score = min(0.18, r_score)
 
     # ── Penalty Computation ──
     penalty = 0.0
     penalty_type = "none"
     
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.2  # FALSE NEGATIVE — most dangerous failure
+        penalty = -0.15  # FALSE NEGATIVE — most dangerous failure
         penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.1  # FALSE POSITIVE — user trust erosion
+        penalty = -0.08  # FALSE POSITIVE — user trust erosion
         penalty_type = "false_positive"
     
     total = round(c_score + a_score + r_score + penalty, 3)
