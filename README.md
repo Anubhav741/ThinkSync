@@ -45,7 +45,7 @@ Content Queue  →  Agent (LLM)  →  Grader  →  RewardRecord
 |------|---------|
 | `models.py` | Pydantic data models: `Content`, `Observation`, `Action`, `RewardRecord`, `EscalationTicket` |
 | `engine.py` | Classification/grading pipeline + `MyEnv` (OpenEnv interface) |
-| `grader.py` | 3 task-specific grading functions with score clamping (0.3–0.7) |
+| `grader.py` | 3 task-specific grading functions with score clamping (0.01–0.99) |
 | `tasks.py` | Task registry: `easy_detection`, `medium_classification`, `hard_contextual` |
 | `inference.py` | Baseline agent — runs all 3 tasks sequentially via HF Router |
 | `app.py` | Gradio observability dashboard |
@@ -95,7 +95,7 @@ Reward for each step is decomposed into:
 | False Negative Penalty | `–0.2` | Approved harmful content |
 | False Positive Penalty | `–0.1` | Removed safe content |
 
-**Range:** `[0.3, 0.7]` per step (clamped — never exactly 0.0 or 1.0)
+**Range:** `[0.01, 0.99]` per step (clamped — never exactly 0.0 or 1.0)
 
 ### Partial Progress Signals
 - **Easy Task:** `+0.2` for identifying toxic keywords in reasoning

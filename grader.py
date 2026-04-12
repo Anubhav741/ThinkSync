@@ -4,7 +4,7 @@ TrustOps-Env: Grader Module (OpenEnv-Compliant)
 Each grader function follows the OpenEnv standard signature:
     def grade(sample: dict, item: Any) -> float
 
-Returns a float strictly within (0.3, 0.7).
+Returns a float strictly within (0.01, 0.99).
 
 Also provides legacy 4-arg versions for internal inference.py use.
 """
@@ -31,18 +31,16 @@ def safe(x: float) -> float:
         val = float(x)
     except (TypeError, ValueError):
         val = 0.5
-    return max(0.3, min(val, 0.7))
+    return max(0.01, min(val, 0.99))
 
 
 def normalize_score(total_reward, max_reward):
     raw = total_reward / max_reward
     if raw <= 0:
-        return 0.3
+        return 0.01
     elif raw >= 1:
-        return 0.7
-    
-    # Scale from 0-1 to 0.3-0.7
-    return round(0.3 + (0.4 * raw), 3)
+        return 0.99
+    return round(raw, 3)
 
 
 # ─── Internal scoring logic (shared by both interfaces) ─────────────────────
@@ -135,7 +133,7 @@ def grade_easy_detection(*args, **kwargs) -> float:
     """
     OpenEnv grader for easy_detection.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.3, 0.7)
+    Returns: float in (0.01, 0.99)
     """
     try:
         if len(args) == 2 and not kwargs:
@@ -168,7 +166,7 @@ def grade_medium_classification(*args, **kwargs) -> float:
     """
     OpenEnv grader for medium_classification.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.3, 0.7)
+    Returns: float in (0.01, 0.99)
     """
     try:
         if len(args) == 2 and not kwargs:
@@ -198,7 +196,7 @@ def grade_hard_contextual(*args, **kwargs) -> float:
     """
     OpenEnv grader for hard_contextual.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.3, 0.7)
+    Returns: float in (0.01, 0.99)
     """
     try:
         if len(args) == 2 and not kwargs:

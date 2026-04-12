@@ -91,7 +91,7 @@ class RewardRecord(BaseModel):
     action_score: float = Field(default=0.05, description="Action correctness score")
     reasoning_score: float = Field(default=0.02, description="Reasoning quality score")
     penalty_applied: float = Field(default=-0.01, description="Penalty for errors")
-    total_score: float = Field(default=0.45, description="Net reward for this step, clamped to (0.3, 0.7)")
+    total_score: float = Field(default=0.17, description="Net reward for this step, clamped to (0.01, 0.99)")
     penalty_type: str = Field(default="none", description="none / false_negative / false_positive")
 
 

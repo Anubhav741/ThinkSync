@@ -326,7 +326,7 @@ class MyEnv:
             print(f"[END] success=True total_steps={self._state.step_count} final_score={int(self._state.cumulative_reward)}")
             return {
                 "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
-                "reward": 0.3,
+                "reward": 0.01,
                 "done": True,
                 "info": {}
             }
@@ -360,8 +360,8 @@ class MyEnv:
             self._state.episode_active = False
             print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
 
-        # MANDATORY: clamp reward to (0.3, 0.7)
-        clamped_reward = max(0.3, min(float(reward_score), 0.7))
+        # MANDATORY: clamp reward to (0.01, 0.99) — never 0.0 or 1.0
+        clamped_reward = max(0.01, min(float(reward_score), 0.99))
         return {
             "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
             "reward": clamped_reward,
