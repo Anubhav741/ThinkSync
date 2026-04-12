@@ -111,21 +111,14 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
     total_items = len(dataset)
 
     task_start = time.time()
-    print(f"[START] task={task_name} | difficulty={difficulty} | items={total_items} | model={MODEL_NAME}")
+    print(f"[START]")
 
     # Edge case: empty dataset — return safe default
     if total_items == 0:
-        print(f"[END] task={task_name} | steps=0 | total_reward=0.000 | avg_reward=0.5 | task_score=0.5000 | elapsed=0.0s")
-        return {
-            "task": task_name,
-            "steps": 0,
-            "total_reward": 0.5,
-            "avg_reward": 0.5,
-            "score": safe(0.5),
-            "elapsed_s": 0.0,
-        }
+        print(f"[END]")
+        return {"steps": []}
 
-    cumulative_reward = 0.0
+    steps_data = []
     step_num = 0
 
     for content in dataset:
@@ -176,41 +169,14 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             agent_reasoning=action_obj.reasoning_chain,
             agent_confidence=action_obj.confidence_score
         ))
+        steps_data.append({"step": step_num, "reward": round(reward_score, 2)})
 
-        cumulative_reward += reward_score
-        step_num += 1
+        print(f"[STEP] step={step_num} reward={reward_score:.2f}")
 
-        elapsed = round(time.time() - task_start, 2)
-
-        print(
-            f"[STEP] task={task_name} | step={step_num} | task_id={content_id} | difficulty={difficulty_val} "
-            f"| action={action_obj.action_type.value} | expected={content.expected_action.value} "
-            f"| reward={reward_score:.3f} | cumulative={cumulative_reward:.3f} | elapsed={elapsed}s"
-        )
-
-    elapsed_total = round(time.time() - task_start, 2)
-
-    # Edge case: division safety
-    if step_num == 0:
-        avg_reward = 0.5
-    else:
-        avg_reward = round(cumulative_reward / step_num, 4)
-
-    # CLAMP task score — MANDATORY
-    task_score = safe(avg_reward)
-
-    print(
-        f"[END] task={task_name} | steps={step_num} | total_reward={cumulative_reward:.3f} "
-        f"| avg_reward={avg_reward} | task_score={task_score:.4f} | elapsed={elapsed_total}s"
-    )
+    print(f"[END]")
 
     return {
-        "task": task_name,
-        "steps": step_num,
-        "total_reward": cumulative_reward,
-        "avg_reward": avg_reward,
-        "score": task_score,
-        "elapsed_s": elapsed_total,
+        "steps": steps_data
     }
 
 
@@ -224,41 +190,22 @@ def run_inference():
     all_tasks = list_tasks()
     total_start = time.time()
 
-    print(f"[START] ThinkSync inference started. Tasks: {len(all_tasks)}, Model: {MODEL_NAME}")
+    print(f"[START]")
 
     # Edge case: no tasks registered
     if not all_tasks:
-        print(f"[END] all_tasks_complete | tasks=0 | scores=[] | overall_score=0.5000 | elapsed=0.0s")
-        return {
-            "tasks": {},
-            "overall_score": safe(0.5),
-            "elapsed_s": 0.0,
-        }
+        print(f"[END]")
+        return {"tasks": {}}
 
     results = {}
     for task_name in all_tasks:
         result = run_single_task(task_name, client)
         results[task_name] = result
 
-    total_elapsed = round(time.time() - total_start, 2)
-
-    # Compute overall score — CLAMP everything
-    task_scores = [r["score"] for r in results.values()]
-    if len(task_scores) == 0:
-        overall_score = safe(0.5)
-    else:
-        overall_score = safe(sum(task_scores) / len(task_scores))
-
-    print(
-        f"[END] all_tasks_complete | tasks={len(all_tasks)} "
-        f"| scores={[r['score'] for r in results.values()]} "
-        f"| overall_score={overall_score:.4f} | elapsed={total_elapsed}s"
-    )
+    print(f"[END]")
 
     return {
-        "tasks": results,
-        "overall_score": overall_score,
-        "elapsed_s": total_elapsed,
+        "tasks": results
     }
 
 

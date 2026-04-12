@@ -90,17 +90,18 @@ try:
                     <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500;">Tasks Processed Today</div>
                     <div style="color: var(--txt-dark); font-size: 2rem; font-weight: 800;">{s.step_count}</div>
                 </div>
-                <div class="stat-card">
-                    <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500;">Success Rate</div>
-                    <div style="color: var(--acc-green); font-size: 2rem; font-weight: 800;">{avg:+.3f}</div>
-                </div>
-                <div class="stat-card">
-                    <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500;">Total Reward</div>
-                    <div style="color: var(--acc-orange); font-size: 2rem; font-weight: 800;">{s.cumulative_reward:+.3f}</div>
-                </div>
-                <div class="stat-card">
-                    <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500;">Pending Review</div>
-                    <div style="color: var(--acc-red); font-size: 2rem; font-weight: 800;">{len(escalation_history)}</div>
+                <div class="stat-card" style="grid-column: span 3;">
+                    <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500; margin-bottom: 8px;">Step History</div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto;">
+                        """
+            for i, r in enumerate(reward_history):
+                html += f'<div style="font-family: monospace; font-size: 0.9rem; color: var(--txt-dark);">Step {i+1} &rarr; reward: {r.total_score:.2f}</div>'
+            
+            if not reward_history:
+                html += '<div style="color: var(--txt-muted); font-size: 0.85rem;">No steps completed yet.</div>'
+                
+            html += """
+                    </div>
                 </div>
             </div>
             """
