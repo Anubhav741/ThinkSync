@@ -8,15 +8,21 @@ environment:
   entry_point: inference.py
 
 tasks:
-  - id: T001
-    name: Easy Toxicity
+  - id: easy_detection
+    name: Easy Detection
+    description: Simple toxicity and spam detection
     difficulty: EASY
-  - id: T002
-    name: Medium Context
+    grader: grader.grade_easy_detection
+  - id: medium_classification
+    name: Medium Classification
+    description: Contextual sentiment analysis — sarcasm vs harassment
     difficulty: MEDIUM
-  - id: T003
-    name: Hard Coded
+    grader: grader.grade_medium_classification
+  - id: hard_contextual
+    name: Hard Contextual
+    description: Multi-turn moderation with coded language detection
     difficulty: HARD
+    grader: grader.grade_hard_contextual
 
 action_space:
   type: structured
@@ -40,7 +46,7 @@ observation_space:
 
 reward:
   type: continuous
-  range: [-0.2, 1.0]
+  range: [0.01, 0.99]
 
 baseline:
   model: "Qwen/Qwen2.5-72B-Instruct"
@@ -54,6 +60,6 @@ runtime:
   image: "python:3.11-slim"
 
 log_format:
-  start: "[START] {name} inference started. Tasks: {n}, Model: {model}"
-  step: "[STEP] step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
-  end: "[END] steps={n} | total_reward={r:.3f} | avg_reward={avg} | elapsed={t}s"
+  start: "[START] task={task} | difficulty={d} | items={n} | model={model}"
+  step: "[STEP] task={task} | step={n} | task_id={id} | difficulty={d} | action={a} | expected={e} | reward={r:.3f} | cumulative={c:.3f} | elapsed={t}s"
+  end: "[END] task={task} | steps={n} | total_reward={r:.3f} | avg_reward={avg} | task_score={s:.4f} | elapsed={t}s"

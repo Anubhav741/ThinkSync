@@ -185,7 +185,8 @@ try:
             await asyncio.sleep(0.4)
 
             action_obj = Action(content_id=content.id, action_type=action, reasoning_chain=reason, confidence_score=conf)
-            new_obs, reward_val, is_done, _ = _env_instance.step(action_obj)
+            step_result = _env_instance.step(action_obj)
+            reward_val = step_result["reward"]
             
             # Track local
             rec = grade_action(content, action, reason, conf)

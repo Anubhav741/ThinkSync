@@ -291,6 +291,8 @@ def grade_action(
         penalty_type = "false_positive"
     
     total = round(c_score + a_score + r_score + penalty, 3)
+    # Clamp to (0.01, 0.99) — never return exactly 0.0 or 1.0
+    total = max(0.01, min(total, 0.99))
     
     return RewardRecord(
         task_id=content.id,

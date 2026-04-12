@@ -3,6 +3,7 @@ TrustOps-Env: Baseline Inference
 =================================
 Uses the OpenAI-compatible client to call Qwen2.5-72B-Instruct via HuggingFace Router.
 Emits [START], [STEP], and [END] logs for OpenEnv evaluation.
+Runs ALL 3 tasks sequentially: easy_detection → medium_classification → hard_contextual.
 Runtime target: < 20 minutes.
 """
 
@@ -18,8 +19,8 @@ except ImportError:
 
 from openai import OpenAI
 
-from engine import MyEnv
-from models import Action, ActionType
+from models import Action, ActionType, Difficulty, Content
+from tasks import list_tasks, get_task, TASK_REGISTRY
 
 # ─── API Configuration (all values read from environment — never hardcoded) ───
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
@@ -68,14 +69,12 @@ def build_user_prompt(content_text: str, difficulty: str) -> str:
 def parse_agent_response(response_text: str) -> dict:
     """Parse JSON from the model response, with fallback."""
     try:
-        # Try to extract JSON block if wrapped in markdown
         if "```" in response_text:
             start = response_text.find("{")
             end   = response_text.rfind("}") + 1
             response_text = response_text[start:end]
         return json.loads(response_text)
     except (json.JSONDecodeError, ValueError):
-        # Fallback: flag with low confidence
         return {
             "action_type": "flag",
             "reasoning_chain": f"Failed to parse model response: {response_text[:200]}",
@@ -83,38 +82,32 @@ def parse_agent_response(response_text: str) -> dict:
         }
 
 
-def run_inference():
-    """Main inference loop: reset env, run episode, log [START]/[STEP]/[END]."""
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=HF_TOKEN,
-    )
+def _clamp_score(score: float) -> float:
+    """Clamp score to strictly (0.01, 0.99) — never 0.0 or 1.0."""
+    return max(0.01, min(score, 0.99))
 
-    env = MyEnv()
-    reset_payload = env.reset()
-    obs_dict = reset_payload["observation"]
 
-    total_tasks  = len(obs_dict.get("content_queue", []))
-    episode_start = time.time()
+def run_single_task(task_name: str, client: OpenAI) -> dict:
+    """
+    Run a single task: load dataset, process each item, call grader, return score.
+    Emits [START], [STEP], [END] logs.
+    """
+    task_def = get_task(task_name)
+    dataset = task_def["dataset_loader"]()
+    grader_fn = task_def["grader"]
+    difficulty = task_def["difficulty"]
+    total_items = len(dataset)
 
-    print(f"[START] ThinkSync inference started. Tasks: {total_tasks}, Model: {MODEL_NAME}")
+    task_start = time.time()
+    print(f"[START] task={task_name} | difficulty={difficulty} | items={total_items} | model={MODEL_NAME}")
 
+    cumulative_reward = 0.0
     step_num = 0
-    while not obs_dict.get("done", False) and obs_dict.get("content_queue"):
-        content_text = obs_dict.get("content", "")
-        content_id   = obs_dict.get("id", "")
-        difficulty_val = "EASY" 
 
-        # Locate content difficulty from objects in queue
-        for c_obj in obs_dict.get("content_queue", []):
-             if isinstance(c_obj, dict):
-                 if c_obj.get("id") == content_id:
-                      difficulty_val = c_obj.get("difficulty", "EASY")
-                      break
-             else: # Pydantic object
-                 if c_obj.id == content_id:
-                      difficulty_val = c_obj.difficulty.value
-                      break
+    for content in dataset:
+        content_text = content.text
+        content_id = content.id
+        difficulty_val = content.difficulty.value
 
         user_prompt = build_user_prompt(content_text, difficulty_val)
 
@@ -152,38 +145,78 @@ def run_inference():
             confidence_score = float(parsed.get("confidence_score", 0.5)),
         )
 
-        step_payload = env.step(action_obj)
-        obs_dict = step_payload["observation"]
-        reward = step_payload["reward"]
-        done = step_payload["done"]
-        step_num += 1
-
-        elapsed = round(time.time() - episode_start, 2)
-
-        print(
-            f"[STEP] step={step_num} | task_id={content_id} | difficulty={difficulty_val} "
-            f"| action={action_obj.action_type.value} | expected=N/A "
-            f"| reward={reward:.3f} | cumulative={obs_dict.get('cumulative_reward', 0.0):.3f} | elapsed={elapsed}s"
+        # ── Grade with task-specific grader ──
+        reward_rec = grader_fn(
+            content=content,
+            agent_action=action_obj.action_type,
+            agent_reasoning=action_obj.reasoning_chain,
+            agent_confidence=action_obj.confidence_score
         )
 
-        if elapsed > 1100:
-            break
+        reward_score = reward_rec.total_score
+        cumulative_reward += reward_score
+        step_num += 1
 
-    elapsed_total = round(time.time() - episode_start, 2)
-    steps_done    = obs_dict.get("step_count", step_num)
-    total_reward  = obs_dict.get("cumulative_reward", 0.0)
-    avg_reward    = round(total_reward / max(steps_done, 1), 4)
+        elapsed = round(time.time() - task_start, 2)
+
+        print(
+            f"[STEP] task={task_name} | step={step_num} | task_id={content_id} | difficulty={difficulty_val} "
+            f"| action={action_obj.action_type.value} | expected={content.expected_action.value} "
+            f"| reward={reward_score:.3f} | cumulative={cumulative_reward:.3f} | elapsed={elapsed}s"
+        )
+
+    elapsed_total = round(time.time() - task_start, 2)
+    avg_reward = round(cumulative_reward / max(step_num, 1), 4)
+    task_score = _clamp_score(avg_reward)
 
     print(
-        f"[END] steps={steps_done} | total_reward={total_reward:.3f} "
-        f"| avg_reward={avg_reward} | elapsed={elapsed_total}s"
+        f"[END] task={task_name} | steps={step_num} | total_reward={cumulative_reward:.3f} "
+        f"| avg_reward={avg_reward} | task_score={task_score:.4f} | elapsed={elapsed_total}s"
     )
 
     return {
-        "steps":        steps_done,
-        "total_reward": total_reward,
-        "avg_reward":   avg_reward,
-        "elapsed_s":    elapsed_total,
+        "task": task_name,
+        "steps": step_num,
+        "total_reward": cumulative_reward,
+        "avg_reward": avg_reward,
+        "score": task_score,
+        "elapsed_s": elapsed_total,
+    }
+
+
+def run_inference():
+    """Main inference loop: runs ALL 3 registered tasks sequentially."""
+    client = OpenAI(
+        base_url=API_BASE_URL,
+        api_key=HF_TOKEN,
+    )
+
+    all_tasks = list_tasks()
+    total_start = time.time()
+
+    print(f"[START] ThinkSync inference started. Tasks: {len(all_tasks)}, Model: {MODEL_NAME}")
+
+    results = {}
+    for task_name in all_tasks:
+        result = run_single_task(task_name, client)
+        results[task_name] = result
+
+    total_elapsed = round(time.time() - total_start, 2)
+
+    # Compute overall score (clamped average of task scores)
+    task_scores = [r["score"] for r in results.values()]
+    overall_score = _clamp_score(sum(task_scores) / max(len(task_scores), 1))
+
+    print(
+        f"[END] all_tasks_complete | tasks={len(all_tasks)} "
+        f"| scores={[r['score'] for r in results.values()]} "
+        f"| overall_score={overall_score:.4f} | elapsed={total_elapsed}s"
+    )
+
+    return {
+        "tasks": results,
+        "overall_score": overall_score,
+        "elapsed_s": total_elapsed,
     }
 
 
