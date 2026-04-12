@@ -19,6 +19,7 @@ import os
 import random
 from datetime import datetime
 from typing import AsyncGenerator, Tuple
+import pandas as pd
 
 try:
     from models import (
@@ -33,6 +34,7 @@ try:
 
     reward_history: list[RewardRecord] = []
     escalation_history: list[EscalationTicket] = []
+    step_table_data = []
 
     # ─── Humanized Amber Hearth Design ─────────────────────────────────────────
     CUSTOM_CSS = """
@@ -132,27 +134,10 @@ try:
         except Exception as e:
             return f"<div>Error queue html: {str(e)}</div>"
 
-    def _get_reward_history_html():
-        try:
-            if not reward_history: return "<div style='color:var(--txt-muted); padding:20px;'>No history.</div>"
-            rows = []
-            for r in reversed(reward_history[-10:]):
-                score_color = "var(--acc-green)" if r.total_score > 0.5 else "var(--acc-red)" if r.total_score < 0 else "var(--txt-dark)"
-                rows.append(f"""
-                <tr style="border-bottom: 1px solid var(--border-light);">
-                    <td style="padding:12px; color:var(--txt-muted); font-size:0.85rem;">{r.task_id}</td>
-                    <td style="padding:12px; font-weight:700; color:{score_color};">{r.total_score:+.2f}</td>
-                    <td style="padding:12px; color:var(--txt-muted); font-size:0.75rem;">{r.penalty_type if r.penalty_applied else 'Okay'}</td>
-                </tr>
-                """)
-            return f"""
-            <table style="width:100%; text-align:left; border-collapse:collapse;">
-                <thead style="color:var(--txt-muted); font-size:0.75rem;"><tr><th>Item</th><th>Score</th><th>Status</th></tr></thead>
-                <tbody>{"".join(rows)}</tbody>
-            </table>
-            """
-        except Exception as e:
-            return f"<div>Error reward html: {str(e)}</div>"
+    def _get_structured_df():
+        if not step_table_data:
+            return pd.DataFrame(columns=["Step", "Action", "Confidence", "Reward"])
+        return pd.DataFrame(step_table_data)
 
     def _get_escalation_html():
         try:
@@ -176,42 +161,48 @@ try:
         try:
             ts = datetime.now().strftime("%H:%M:%S")
             log += f"[{ts}] INITIALIZING MODERATION PIPELINE FOR {content.id}...\n"
-            yield log, _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            yield log, _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
             await asyncio.sleep(0.4)
 
             label, action, reason, conf, _ = classify_content(content)
             log += f"[{ts}] AGENT OUTPUT: Action={action.value.upper()} | Conf={conf:.1%}\n"
             log += f"[{ts}] REASONING: {reason[:150]}...\n"
-            yield log, _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            yield log, _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
             await asyncio.sleep(0.4)
 
             action_obj = Action(content_id=content.id, action_type=action, reasoning_chain=reason, confidence_score=conf)
             step_result = _env_instance.step(action_obj)
             reward_val = step_result["reward"]
             
-            # Track local
-            rec = grade_action(content, action, reason, conf)
-            reward_history.append(rec)
+            # Track local step
+            current_step = _env_instance.state().step_count
+            step_table_data.append({
+                "Step": current_step,
+                "Action": action.value.upper(),
+                "Confidence": round(conf, 2),
+                "Reward": round(reward_val, 2)
+            })
+            
             if action == ActionType.FLAG:
                 escalation_history.append(create_escalation(content, reason))
 
-            log += f"[{ts}] ENVIRONMENT SYNC: Reward awarded {reward_val:+.3f}. State advanced.\n"
-            yield log, _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            log += f"[{ts}] ENVIRONMENT SYNC: State advanced.\n"
+            yield log, _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
             
         except Exception as e:
             log += f"[ERROR in run_step] {str(e)}\n"
-            yield log, _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            yield log, _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
 
     async def manual_step():
         try:
             s = _env_instance.state()
             if not s.content_queue:
-                yield "STREAMS EXHAUSTED", _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+                yield "STREAMS EXHAUSTED", _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
                 return
             async for update in run_step(s.content_queue[0]):
                 yield update
         except Exception as e:
-            yield f"[ERROR in manual_step] {str(e)}", _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            yield f"[ERROR in manual_step] {str(e)}", _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
 
     async def batch_all():
         try:
@@ -220,16 +211,16 @@ try:
                     yield update
                 await asyncio.sleep(0.5)
         except Exception as e:
-            yield f"[ERROR in batch_all] {str(e)}", _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            yield f"[ERROR in batch_all] {str(e)}", _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
 
     def reset_all():
         try:
-            global reward_history, escalation_history
+            global escalation_history, step_table_data
             _env_instance.reset()
-            reward_history, escalation_history = [], []
-            return "ENGINE RESET", _get_stats_html(), _get_queue_html(), _get_reward_history_html(), _get_escalation_html()
+            escalation_history, step_table_data = [], []
+            return "ENGINE RESET", _get_stats_html(), _get_queue_html(), _get_escalation_html(), _get_structured_df()
         except Exception as e:
-            return f"[ERROR in reset_all] {str(e)}", "Error", "Error", "Error", "Error"
+            return f"[ERROR in reset_all] {str(e)}", "Error", "Error", "Error", _get_structured_df()
 
     # ─── UI Layout ─────────────────────────────────────────────────────────────
 
@@ -248,7 +239,9 @@ try:
         with gr.Row():
             with gr.Column(scale=3):
                 with gr.Group(elem_classes="glass-panel"):
-                    terminal = gr.Textbox(label="Agent Reasoning Stream", lines=20, interactive=False, elem_id="log-output")
+                    terminal = gr.Textbox(label="Agent Reasoning Stream", lines=8, interactive=False, elem_id="log-output")
+                with gr.Group(elem_classes="glass-panel"):
+                    rewards_table = gr.Dataframe(label="Step Rewards Table", headers=["Step", "Action", "Confidence", "Reward"], interactive=False)
                 with gr.Row():
                     btn_s = gr.Button("Evaluate Next Item", variant="primary")
                     btn_b = gr.Button("Review Batch", variant="secondary")
@@ -258,12 +251,10 @@ try:
                 with gr.Group(elem_classes="glass-panel"):
                     with gr.Tab("Inbox Queue"):
                         queue_ui = gr.HTML(_get_queue_html())
-                    with gr.Tab("Recent Activity"):
-                        rewards_ui = gr.HTML(_get_reward_history_html())
                     with gr.Tab("Escalations"):
                         escalations_ui = gr.HTML(_get_escalation_html())
 
-        outputs = [terminal, stats_ui, queue_ui, rewards_ui, escalations_ui]
+        outputs = [terminal, stats_ui, queue_ui, escalations_ui, rewards_table]
         btn_s.click(manual_step, outputs=outputs)
         btn_b.click(batch_all, outputs=outputs)
         btn_r.click(reset_all, outputs=outputs)
