@@ -61,13 +61,13 @@ When uncertain, flag for human review."""
 }
 
 
-def safe(x: float) -> float:
-    """Global safety clamp."""
+def safe(x: float) -> int:
+    """Global safety clamp ensuring strict 0 or 1."""
     try:
         val = float(x)
     except (TypeError, ValueError):
-        val = 0.5
-    return max(0.01, min(val, 0.99))
+        val = 0.0
+    return 1 if val >= 0.5 else 0
 
 
 def build_user_prompt(content_text: str, difficulty: str) -> str:
@@ -162,26 +162,26 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             confidence_score = float(parsed.get("confidence_score", 0.5)),
         )
 
-        # ── Grade with task-specific grader (returns float) ──
+        # ── Grade with task-specific grader (returns int) ──
         reward_score = safe(grader_fn(
             content=content,
             agent_action=action_obj.action_type,
             agent_reasoning=action_obj.reasoning_chain,
             agent_confidence=action_obj.confidence_score
         ))
-        reward_score = max(0.01, min(0.99, reward_score))
-        steps_data.append({"step": step_num, "reward": round(reward_score, 2)})
+        reward_score = 1 if reward_score > 0 else 0
+        steps_data.append({"step": step_num, "reward": reward_score})
 
-        print(f"[STEP] step={step_num} reward={reward_score:.2f}")
+        print(f"[STEP] step={step_num} reward={reward_score}")
 
     if not steps_data:
-        task_score = 0.5
+        task_score = 0
     else:
-        task_score = sum(s["reward"] for s in steps_data) / len(steps_data)
+        task_score = int(sum(s["reward"] for s in steps_data) / len(steps_data))
         
-    task_score = max(0.01, min(0.99, task_score))
+    task_score = 1 if task_score > 0 else 0
 
-    print(f"[END] success=True total_steps={len(steps_data)} final_score={task_score:.3f}")
+    print(f"[END] success=True total_steps={len(steps_data)} final_score={task_score}")
 
     return {
         "score": task_score,
@@ -212,13 +212,13 @@ def run_inference():
         results[task_name] = result
 
     if not results:
-        overall_score = 0.5
+        overall_score = 0
     else:
-        overall_score = sum(r["score"] for r in results.values()) / len(results)
+        overall_score = int(sum(r["score"] for r in results.values()) / len(results))
         
-    overall_score = max(0.01, min(0.99, overall_score))
+    overall_score = 1 if overall_score > 0 else 0
 
-    print(f"[END] success=True total_steps=0 final_score={overall_score:.3f}")
+    print(f"[END] success=True total_steps=0 final_score={overall_score}")
 
     return {
         "score": overall_score,

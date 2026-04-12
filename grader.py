@@ -4,7 +4,7 @@ TrustOps-Env: Grader Module (OpenEnv-Compliant)
 Each grader function follows the OpenEnv standard signature:
     def grade(sample: dict, item: Any) -> float
 
-Returns a float strictly within (0.01, 0.99).
+Returns an integer 0 or 1.
 
 Also provides legacy 4-arg versions for internal inference.py use.
 """
@@ -31,31 +31,27 @@ def safe(x: float) -> float:
         val = float(x)
     except (TypeError, ValueError):
         val = 0.5
-    return max(0.01, min(val, 0.99))
+    return 1 if val >= 0.5 else 0
 
 
 def normalize_score(total_reward, max_reward):
     raw = total_reward / max_reward
-    if raw <= 0:
-        return 0.01
-    elif raw >= 1:
-        return 0.99
-    return round(raw, 3)
+    if raw > 0:
+        return 1
+    return 0
 
 
 # ─── Internal scoring logic (shared by both interfaces) ─────────────────────
 
-def _score_base(content: Content, agent_action: ActionType) -> float:
+def _score_base(content: Content, agent_action: ActionType) -> int:
     expected_action = content.expected_action
     
     if agent_action == expected_action:
-        return normalize_score(0.8, 1.0)
-    elif agent_action == ActionType.FLAG:
-        return normalize_score(0.5, 1.0)
+        return 1
     else:
-        return normalize_score(0.2, 1.0)
+        return 0
 
-def _score_easy(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
+def _score_easy(content: Content, agent_action: ActionType, agent_reasoning: str) -> int:
     return _score_base(content, agent_action)
 
 def _score_medium(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
@@ -129,11 +125,11 @@ def _extract_content(item: Any) -> Content:
 # These are what openenv.yaml points to.
 # ═══════════════════════════════════════════════════════════════════════════
 
-def grade_easy_detection(*args, **kwargs) -> float:
+def grade_easy_detection(*args, **kwargs) -> int:
     """
     OpenEnv grader for easy_detection.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.01, 0.99)
+    Returns: integer 0 or 1
     """
     try:
         if len(args) == 2 and not kwargs:
@@ -159,14 +155,14 @@ def grade_easy_detection(*args, **kwargs) -> float:
 
         return _score_easy(content, agent_action, agent_reasoning)
     except Exception:
-        return safe(0.5)
+        return 0
 
 
-def grade_medium_classification(*args, **kwargs) -> float:
+def grade_medium_classification(*args, **kwargs) -> int:
     """
     OpenEnv grader for medium_classification.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.01, 0.99)
+    Returns: integer 0 or 1
     """
     try:
         if len(args) == 2 and not kwargs:
@@ -189,14 +185,14 @@ def grade_medium_classification(*args, **kwargs) -> float:
 
         return _score_medium(content, agent_action, agent_reasoning)
     except Exception:
-        return safe(0.5)
+        return 0
 
 
-def grade_hard_contextual(*args, **kwargs) -> float:
+def grade_hard_contextual(*args, **kwargs) -> int:
     """
     OpenEnv grader for hard_contextual.
     Accepts: (sample, item) OR (content, agent_action, agent_reasoning, agent_confidence)
-    Returns: float in (0.01, 0.99)
+    Returns: integer 0 or 1
     """
     try:
         if len(args) == 2 and not kwargs:
@@ -219,12 +215,12 @@ def grade_hard_contextual(*args, **kwargs) -> float:
 
         return _score_hard(content, agent_action, agent_reasoning)
     except Exception:
-        return safe(0.5)
+        return 0
 
 
 # ─── Unified dispatcher ─────────────────────────────────────────────────────
 
-def grade_task(task_name: str, *args, **kwargs) -> float:
+def grade_task(task_name: str, *args, **kwargs) -> int:
     """Routes to the correct grading function by task name."""
     if task_name == "easy_detection":
         return grade_easy_detection(*args, **kwargs)
@@ -233,4 +229,4 @@ def grade_task(task_name: str, *args, **kwargs) -> float:
     elif task_name == "hard_contextual":
         return grade_hard_contextual(*args, **kwargs)
     else:
-        return safe(0.5)
+        return 0

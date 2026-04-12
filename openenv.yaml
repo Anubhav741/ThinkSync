@@ -45,8 +45,7 @@ observation_space:
     metadata: { type: object }
 
 reward:
-  type: continuous
-  range: [0.0, 1.0]
+  type: binary
 
 baseline:
   model: "Qwen/Qwen2.5-72B-Instruct"
@@ -61,5 +60,5 @@ runtime:
 
 log_format:
   start: "[START]"
-  step: "[STEP] step={n} reward={r:.2f}"
-  end: "[END] success={success} total_steps={n} final_score={s:.3f}"
+  step: "[STEP] step={n} reward={r}"
+  end: "[END] success={success} total_steps={n} final_score={s}"
