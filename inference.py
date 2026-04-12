@@ -166,16 +166,14 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             confidence_score = float(parsed.get("confidence_score", 0.5)),
         )
 
-        # ── Grade with task-specific grader ──
-        reward_rec = grader_fn(
+        # ── Grade with task-specific grader (returns float) ──
+        reward_score = safe_score(grader_fn(
             content=content,
             agent_action=action_obj.action_type,
             agent_reasoning=action_obj.reasoning_chain,
             agent_confidence=action_obj.confidence_score
-        )
+        ))
 
-        # CLAMP every step reward — never 0.0 or 1.0
-        reward_score = safe_score(reward_rec.total_score)
         cumulative_reward += reward_score
         step_num += 1
 

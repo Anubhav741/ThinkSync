@@ -2,11 +2,12 @@
 TrustOps-Env: Grader Module
 ============================
 Provides 3 separate grading functions — one per task.
-All scores are clamped to (0.01, 0.99) to satisfy OpenEnv Phase 2 validation.
+Each function returns a FLOAT score strictly within (0.01, 0.99).
+OpenEnv calls these directly — they MUST return float, not objects.
 """
 
 from models import (
-    Content, Action, ActionType, Difficulty, ContentLabel, RewardRecord,
+    Content, Action, ActionType, Difficulty, ContentLabel,
     CONTENT_BANK
 )
 from engine import _compute_embedding_similarity
@@ -19,68 +20,45 @@ def safe_score(x: float) -> float:
 
 
 def grade_easy_detection(content: Content, agent_action: ActionType,
-                         agent_reasoning: str, agent_confidence: float) -> RewardRecord:
+                         agent_reasoning: str, agent_confidence: float) -> float:
     """
     Grader for Task 1: easy_detection (Simple Toxicity Detection).
-    Rule-based label matching — no reasoning eval.
+    Returns: float score in (0.01, 0.99)
     """
     expected_action = content.expected_action
 
-    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
-
-    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     toxic_words = ["toxic", "abusive", "hate", "spam", "violation", "harmful", "unsafe"]
     if any(word in agent_reasoning.lower() for word in toxic_words):
         r_score = 0.18
 
-    # Penalty — never pushes total to exactly 0.0
     penalty = 0.0
-    penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
         penalty = -0.15
-        penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
         penalty = -0.08
-        penalty_type = "false_positive"
 
-    total = safe_score(c_score + a_score + r_score + penalty)
-
-    return RewardRecord(
-        task_id=content.id,
-        classification_score=c_score,
-        action_score=a_score,
-        reasoning_score=r_score,
-        penalty_applied=penalty,
-        total_score=total,
-        penalty_type=penalty_type
-    )
+    return safe_score(c_score + a_score + r_score + penalty)
 
 
 def grade_medium_classification(content: Content, agent_action: ActionType,
-                                agent_reasoning: str, agent_confidence: float) -> RewardRecord:
+                                agent_reasoning: str, agent_confidence: float) -> float:
     """
     Grader for Task 2: medium_classification (Contextual Sentiment Analysis).
-    Policy-matching + initial reasoning assessment.
+    Returns: float score in (0.01, 0.99)
     """
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
-
-    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
         c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
     if any(word in agent_reasoning.lower() for word in context_words):
@@ -89,49 +67,30 @@ def grade_medium_classification(content: Content, agent_action: ActionType,
     r_score += round(min(0.08, similarity * 0.15), 3)
     r_score = min(0.18, r_score)
 
-    # Penalty
     penalty = 0.0
-    penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
         penalty = -0.15
-        penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
         penalty = -0.08
-        penalty_type = "false_positive"
 
-    total = safe_score(c_score + a_score + r_score + penalty)
-
-    return RewardRecord(
-        task_id=content.id,
-        classification_score=c_score,
-        action_score=a_score,
-        reasoning_score=r_score,
-        penalty_applied=penalty,
-        total_score=total,
-        penalty_type=penalty_type
-    )
+    return safe_score(c_score + a_score + r_score + penalty)
 
 
 def grade_hard_contextual(content: Content, agent_action: ActionType,
-                          agent_reasoning: str, agent_confidence: float) -> RewardRecord:
+                          agent_reasoning: str, agent_confidence: float) -> float:
     """
     Grader for Task 3: hard_contextual (Multi-Turn Moderation / Coded Language).
-    Full embedding similarity evaluation.
+    Returns: float score in (0.01, 0.99)
     """
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
-
-    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
         c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     hard_words = ["grooming", "radicalization", "pattern", "history", "subtle",
                   "manipulation", "coded", "leaked", "whistleblower"]
@@ -141,31 +100,17 @@ def grade_hard_contextual(content: Content, agent_action: ActionType,
     r_score += round(min(0.08, similarity * 0.25), 3)
     r_score = min(0.18, r_score)
 
-    # Penalty
     penalty = 0.0
-    penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
         penalty = -0.15
-        penalty_type = "false_negative"
     elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
         penalty = -0.08
-        penalty_type = "false_positive"
 
-    total = safe_score(c_score + a_score + r_score + penalty)
-
-    return RewardRecord(
-        task_id=content.id,
-        classification_score=c_score,
-        action_score=a_score,
-        reasoning_score=r_score,
-        penalty_applied=penalty,
-        total_score=total,
-        penalty_type=penalty_type
-    )
+    return safe_score(c_score + a_score + r_score + penalty)
 
 
 def grade_task(task_name: str, content: Content, agent_action: ActionType,
-               agent_reasoning: str, agent_confidence: float) -> RewardRecord:
+               agent_reasoning: str, agent_confidence: float) -> float:
     """Unified dispatcher — routes to the correct grading function by task name."""
     if task_name == "easy_detection":
         return grade_easy_detection(content, agent_action, agent_reasoning, agent_confidence)
@@ -174,4 +119,4 @@ def grade_task(task_name: str, content: Content, agent_action: ActionType,
     elif task_name == "hard_contextual":
         return grade_hard_contextual(content, agent_action, agent_reasoning, agent_confidence)
     else:
-        raise ValueError(f"Unknown task: {task_name}")
+        return safe_score(0.5)
