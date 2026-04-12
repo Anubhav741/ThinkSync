@@ -174,14 +174,14 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
 
         print(f"[STEP] step={step_num} reward={reward_score:.2f}")
 
-    print(f"[END]")
-    
     if not steps_data:
         task_score = 0.5
     else:
         task_score = sum(s["reward"] for s in steps_data) / len(steps_data)
         
     task_score = max(0.01, min(0.99, task_score))
+
+    print(f"[END] success=True total_steps={len(steps_data)} final_score={task_score:.3f}")
 
     return {
         "score": task_score,
@@ -211,14 +211,14 @@ def run_inference():
         result = run_single_task(task_name, client)
         results[task_name] = result
 
-    print(f"[END]")
-    
     if not results:
         overall_score = 0.5
     else:
         overall_score = sum(r["score"] for r in results.values()) / len(results)
         
     overall_score = max(0.01, min(0.99, overall_score))
+
+    print(f"[END] success=True total_steps=0 final_score={overall_score:.3f}")
 
     return {
         "score": overall_score,

@@ -233,14 +233,9 @@ def grade_action(
     
     # ENHANCED TASK & GRADER LOGIC
     if agent_action == expected_action:
-        total = 0.8 # Good
-    elif agent_action == ActionType.FLAG:
-        total = 0.5 # Neutral
+        total = 1
     else:
-        total = 0.2 # Bad
-    
-    # ── Safe clamp ──
-    total = max(0.01, min(float(total), 0.99))
+        total = 0
     
     return RewardRecord(
         task_id=content.id,
@@ -328,15 +323,15 @@ class MyEnv:
 
         if not self._state.episode_active or not self._state.content_queue:
             self._state.done = True
-            print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
+            print(f"[END] success=True total_steps={self._state.step_count} final_score={int(self._state.cumulative_reward)}")
             return {
                 "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
-                "reward": 0.01,
+                "reward": 0,
                 "done": True,
                 "info": {}
             }
 
-        reward_score = 0.01
+        reward_score = 0
         content = next((c for c in self._state.content_queue if c.id == action_obj.content_id), None)
         
         if content:
