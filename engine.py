@@ -234,15 +234,15 @@ def grade_action(
     # ── Classification Score
     # SECURITY FIX: Removed the flag-everything hack.
     classification_correct = (agent_action == expected_action)
-    c_score = 0.45 if classification_correct else 0.1
+    c_score = 0.20 if classification_correct else 0.05
     
     # ── Action Score
     action_correct = (agent_action == expected_action)
-    a_score = 0.28 if action_correct else 0.05
+    a_score = 0.15 if action_correct else 0.05
     
     # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.45, 0.28
+        c_score, a_score = 0.20, 0.15
     
     # ── Reasoning Quality Score
     r_score = 0.02
@@ -252,23 +252,23 @@ def grade_action(
         toxic_words = ["toxic", "abusive", "hate", "spam", "violation"]
         word_found = any(word in agent_reasoning.lower() for word in toxic_words)
         if word_found:
-            r_score = 0.18
+            r_score = 0.10
 
     elif difficulty == Difficulty.MEDIUM:
         context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
         if any(word in agent_reasoning.lower() for word in context_words):
-             r_score += 0.08
+             r_score += 0.04
         similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.08, similarity * 0.15), 3)
-        r_score = min(0.18, r_score)
+        r_score += round(min(0.04, similarity * 0.08), 3)
+        r_score = min(0.10, r_score)
 
     elif difficulty == Difficulty.HARD:
         hard_words = ["grooming", "radicalization", "pattern", "history", "subtle", "manipulation", "coded", "leaked", "whistleblower"]
         if any(word in agent_reasoning.lower() for word in hard_words):
-             r_score += 0.08
+             r_score += 0.04
         similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.08, similarity * 0.25), 3)
-        r_score = min(0.18, r_score)
+        r_score += round(min(0.04, similarity * 0.12), 3)
+        r_score = min(0.10, r_score)
 
     # ── Penalty Computation ──
     penalty = 0.0
@@ -282,8 +282,8 @@ def grade_action(
         penalty_type = "false_positive"
     
     total = round(c_score + a_score + r_score + penalty, 3)
-    # MANDATORY CLAMP — never return exactly 0.0 or 1.0
-    total = max(0.01, min(float(total), 0.99))
+    # MANDATORY CLAMP — mathematically prevent hitting >= 0.50 or <= 0.00
+    total = max(0.05, min(float(total), 0.49))
     
     return RewardRecord(
         task_id=content.id,
