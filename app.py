@@ -86,7 +86,7 @@ try:
             s = _env_instance.state()
             avg = s.cumulative_reward / max(s.step_count, 1)
             
-            html = f"""
+            return f"""
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px;">
                 <div class="stat-card">
                     <div style="color: var(--txt-muted); font-size: 0.8rem; font-weight: 500;">Tasks Processed Today</div>
@@ -97,7 +97,7 @@ try:
                     <div style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto;">
                         """
             for i, r in enumerate(reward_history):
-                html += f'<div style="font-family: monospace; font-size: 0.9rem; color: var(--txt-dark);">Step {i+1} &rarr; reward: {int(r.total_score)}</div>'
+                html += f'<div style="font-family: monospace; font-size: 0.9rem; color: var(--txt-dark);">Step {i+1} &rarr; reward: {r.total_score:.2f}</div>'
             
             if not reward_history:
                 html += '<div style="color: var(--txt-muted); font-size: 0.85rem;">No steps completed yet.</div>'
@@ -107,7 +107,6 @@ try:
                 </div>
             </div>
             """
-            return html
         except Exception as e:
             return f"<div>Error stats html: {str(e)}</div>"
 
@@ -181,7 +180,7 @@ try:
                 "Step": current_step,
                 "Action": action.value.upper(),
                 "Confidence": round(conf, 2),
-                "Reward": int(reward_val)
+                "Reward": round(reward_val, 2)
             })
             
             if action == ActionType.FLAG:
@@ -280,7 +279,7 @@ try:
         data = await req.json()
         result = _env_instance.step(data)
         if isinstance(result, dict) and "reward" in result:
-            result["reward"] = 1 if float(result["reward"]) >= 0.5 else 0
+            result["reward"] = max(0.01, min(float(result["reward"]), 0.99))
         return result
 
     api = gr.mount_gradio_app(api, demo, path="/")
