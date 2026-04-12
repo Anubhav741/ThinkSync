@@ -32,6 +32,7 @@ def safe(x: float) -> float:
     except (TypeError, ValueError):
         val = 0.5
     return max(0.01, min(val, 0.99))
+    
 
 
 def normalize_score(total_reward, max_reward):
