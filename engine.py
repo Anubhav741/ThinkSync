@@ -68,13 +68,13 @@ def _compute_embedding_similarity(agent_reasoning: str, label: str) -> float:
     Here we use word-overlap as a lightweight proxy.
     """
     if label not in EXPERT_REASONING:
-        return 0.0
+        return 0.01
     
     expert = EXPERT_REASONING[label].lower().split()
     agent_words = agent_reasoning.lower().split()
     
     if not agent_words:
-        return 0.0
+        return 0.01
     
     # Jaccard-like similarity with position weighting
     expert_set = set(expert)
@@ -282,8 +282,8 @@ def grade_action(
         penalty_type = "false_positive"
     
     total = round(c_score + a_score + r_score + penalty, 3)
-    # Clamp to (0.01, 0.99) — never return exactly 0.0 or 1.0
-    total = max(0.01, min(total, 0.99))
+    # MANDATORY CLAMP — never return exactly 0.0 or 1.0
+    total = max(0.01, min(float(total), 0.99))
     
     return RewardRecord(
         task_id=content.id,
@@ -374,12 +374,12 @@ class MyEnv:
             print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
             return {
                 "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
-                "reward": 0.0,
+                "reward": 0.01,
                 "done": True,
                 "info": {}
             }
 
-        reward_score = 0.0
+        reward_score = 0.01
         content = next((c for c in self._state.content_queue if c.id == action_obj.content_id), None)
         
         if content:
@@ -408,9 +408,11 @@ class MyEnv:
             self._state.episode_active = False
             print(f"[END] success=True total_steps={self._state.step_count} final_score={self._state.cumulative_reward:.3f}")
 
+        # MANDATORY: clamp reward to (0.01, 0.99) — never 0.0 or 1.0
+        clamped_reward = max(0.01, min(float(reward_score), 0.99))
         return {
             "observation": self._state.model_dump() if hasattr(self._state, "model_dump") else self._state.dict(),
-            "reward": float(reward_score),
+            "reward": clamped_reward,
             "done": bool(self._state.done),
             "info": {}
         }

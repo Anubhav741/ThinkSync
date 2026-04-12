@@ -61,6 +61,12 @@ When uncertain, flag for human review."""
 }
 
 
+def safe_score(x: float) -> float:
+    """Global safety clamp — guarantees output is strictly within (0.01, 0.99).
+    No value may EVER be 0.0 or 1.0."""
+    return max(0.01, min(float(x), 0.99))
+
+
 def build_user_prompt(content_text: str, difficulty: str) -> str:
     instruction = TASK_INSTRUCTIONS.get(difficulty, TASK_INSTRUCTIONS["EASY"])
     return f"{instruction}\n\nContent to moderate:\n\"{content_text}\""
@@ -90,11 +96,6 @@ def parse_agent_response(response_text: str) -> dict:
         }
 
 
-def _clamp_score(score: float) -> float:
-    """Clamp score to strictly (0.01, 0.99) — never 0.0 or 1.0."""
-    return max(0.01, min(score, 0.99))
-
-
 def run_single_task(task_name: str, client: OpenAI) -> dict:
     """
     Run a single task: load dataset, process each item, call grader, return score.
@@ -108,6 +109,18 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
 
     task_start = time.time()
     print(f"[START] task={task_name} | difficulty={difficulty} | items={total_items} | model={MODEL_NAME}")
+
+    # Edge case: empty dataset — return safe default
+    if total_items == 0:
+        print(f"[END] task={task_name} | steps=0 | total_reward=0.000 | avg_reward=0.5 | task_score=0.5000 | elapsed=0.0s")
+        return {
+            "task": task_name,
+            "steps": 0,
+            "total_reward": 0.5,
+            "avg_reward": 0.5,
+            "score": safe_score(0.5),
+            "elapsed_s": 0.0,
+        }
 
     cumulative_reward = 0.0
     step_num = 0
@@ -161,7 +174,8 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             agent_confidence=action_obj.confidence_score
         )
 
-        reward_score = reward_rec.total_score
+        # CLAMP every step reward — never 0.0 or 1.0
+        reward_score = safe_score(reward_rec.total_score)
         cumulative_reward += reward_score
         step_num += 1
 
@@ -174,8 +188,15 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
         )
 
     elapsed_total = round(time.time() - task_start, 2)
-    avg_reward = round(cumulative_reward / max(step_num, 1), 4)
-    task_score = _clamp_score(avg_reward)
+
+    # Edge case: division safety
+    if step_num == 0:
+        avg_reward = 0.5
+    else:
+        avg_reward = round(cumulative_reward / step_num, 4)
+
+    # CLAMP task score — MANDATORY
+    task_score = safe_score(avg_reward)
 
     print(
         f"[END] task={task_name} | steps={step_num} | total_reward={cumulative_reward:.3f} "
@@ -204,6 +225,15 @@ def run_inference():
 
     print(f"[START] ThinkSync inference started. Tasks: {len(all_tasks)}, Model: {MODEL_NAME}")
 
+    # Edge case: no tasks registered
+    if not all_tasks:
+        print(f"[END] all_tasks_complete | tasks=0 | scores=[] | overall_score=0.5000 | elapsed=0.0s")
+        return {
+            "tasks": {},
+            "overall_score": safe_score(0.5),
+            "elapsed_s": 0.0,
+        }
+
     results = {}
     for task_name in all_tasks:
         result = run_single_task(task_name, client)
@@ -211,9 +241,12 @@ def run_inference():
 
     total_elapsed = round(time.time() - total_start, 2)
 
-    # Compute overall score (clamped average of task scores)
+    # Compute overall score — CLAMP everything
     task_scores = [r["score"] for r in results.values()]
-    overall_score = _clamp_score(sum(task_scores) / max(len(task_scores), 1))
+    if len(task_scores) == 0:
+        overall_score = safe_score(0.5)
+    else:
+        overall_score = safe_score(sum(task_scores) / len(task_scores))
 
     print(
         f"[END] all_tasks_complete | tasks={len(all_tasks)} "

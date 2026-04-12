@@ -12,9 +12,10 @@ from models import (
 from engine import _compute_embedding_similarity
 
 
-def _clamp(score: float) -> float:
-    """Clamp score to strictly (0.01, 0.99) — never 0.0 or 1.0."""
-    return max(0.01, min(score, 0.99))
+def safe_score(x: float) -> float:
+    """Global safety clamp — guarantees output is strictly within (0.01, 0.99).
+    No value may EVER be 0.0 or 1.0."""
+    return max(0.01, min(float(x), 0.99))
 
 
 def grade_easy_detection(content: Content, agent_action: ActionType,
@@ -25,19 +26,19 @@ def grade_easy_detection(content: Content, agent_action: ActionType,
     """
     expected_action = content.expected_action
 
-    # Classification score
+    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score
+    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
-    # Reasoning quality
+    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     toxic_words = ["toxic", "abusive", "hate", "spam", "violation", "harmful", "unsafe"]
     if any(word in agent_reasoning.lower() for word in toxic_words):
         r_score = 0.18
 
-    # Penalty
+    # Penalty — never pushes total to exactly 0.0
     penalty = 0.0
     penalty_type = "none"
     if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
@@ -47,7 +48,7 @@ def grade_easy_detection(content: Content, agent_action: ActionType,
         penalty = -0.08
         penalty_type = "false_positive"
 
-    total = _clamp(c_score + a_score + r_score + penalty)
+    total = safe_score(c_score + a_score + r_score + penalty)
 
     return RewardRecord(
         task_id=content.id,
@@ -69,17 +70,17 @@ def grade_medium_classification(content: Content, agent_action: ActionType,
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score
+    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score
+    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
     # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
         c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality
+    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
     if any(word in agent_reasoning.lower() for word in context_words):
@@ -98,7 +99,7 @@ def grade_medium_classification(content: Content, agent_action: ActionType,
         penalty = -0.08
         penalty_type = "false_positive"
 
-    total = _clamp(c_score + a_score + r_score + penalty)
+    total = safe_score(c_score + a_score + r_score + penalty)
 
     return RewardRecord(
         task_id=content.id,
@@ -120,17 +121,17 @@ def grade_hard_contextual(content: Content, agent_action: ActionType,
     expected_action = content.expected_action
     expected_label = content.expected_label
 
-    # Classification score
+    # Classification score — variable, never 0.0
     c_score = 0.45 if agent_action == expected_action else 0.1
 
-    # Action score
+    # Action score — variable, never 0.0
     a_score = 0.28 if agent_action == expected_action else 0.05
 
     # Flag on genuinely ambiguous content earns marks
     if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
         c_score, a_score = 0.45, 0.28
 
-    # Reasoning quality
+    # Reasoning quality — baseline 0.02, never 0.0
     r_score = 0.02
     hard_words = ["grooming", "radicalization", "pattern", "history", "subtle",
                   "manipulation", "coded", "leaked", "whistleblower"]
@@ -150,7 +151,7 @@ def grade_hard_contextual(content: Content, agent_action: ActionType,
         penalty = -0.08
         penalty_type = "false_positive"
 
-    total = _clamp(c_score + a_score + r_score + penalty)
+    total = safe_score(c_score + a_score + r_score + penalty)
 
     return RewardRecord(
         task_id=content.id,
