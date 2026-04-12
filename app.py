@@ -285,7 +285,11 @@ try:
     @api.post("/step")
     async def openenv_step(req: fastapi.Request):
         data = await req.json()
-        return _env_instance.step(data)
+        result = _env_instance.step(data)
+        # MANDATORY: clamp reward for OpenEnv — never 0.0 or 1.0
+        if isinstance(result, dict) and "reward" in result:
+            result["reward"] = max(0.01, min(float(result["reward"]), 0.99))
+        return result
 
     api = gr.mount_gradio_app(api, demo, path="/")
     uvicorn.run(api, host=os.getenv("SERVER_HOST", "0.0.0.0"), port=int(os.getenv("PORT", "7860")))

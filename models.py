@@ -69,7 +69,7 @@ class Observation(BaseModel):
     content_queue: List[Content] = Field(default_factory=list, description="Posts awaiting moderation")
     moderation_log: List[Dict] = Field(default_factory=list, description="History of all decisions and reasoning")
     step_count: int = Field(default=0, description="Steps completed in current episode")
-    cumulative_reward: float = Field(default=0.0, description="Running reward total")
+    cumulative_reward: float = Field(default=0.01, description="Running reward total")
     episode_active: bool = Field(default=True, description="Whether the episode is still running")
     done: bool = Field(default=False, description="Whether the episode has ended")
     metadata: Dict = Field(default_factory=dict)
@@ -80,18 +80,18 @@ class Action(BaseModel):
     content_id: str = Field(description="References Content.id")
     action_type: ActionType = Field(description="approve / remove / flag")
     reasoning_chain: str = Field(default="", description="Step-by-step justification")
-    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Agent self-reported confidence")
+    confidence_score: float = Field(default=0.5, ge=0.01, le=0.99, description="Agent self-reported confidence")
 
 
 class RewardRecord(BaseModel):
     """Structured reward breakdown computed by the Grader for a single task."""
     reward_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     task_id: str
-    classification_score: float = Field(default=0.0, description="+0.5 or 0.0")
-    action_score: float = Field(default=0.0, description="+0.3 or 0.0")
-    reasoning_score: float = Field(default=0.0, description="0.0 to +0.2")
-    penalty_applied: float = Field(default=0.0, description="0.0, -0.1, or -0.2")
-    total_score: float = Field(default=0.0, description="Net reward for this step")
+    classification_score: float = Field(default=0.1, description="Classification accuracy score")
+    action_score: float = Field(default=0.05, description="Action correctness score")
+    reasoning_score: float = Field(default=0.02, description="Reasoning quality score")
+    penalty_applied: float = Field(default=-0.01, description="Penalty for errors")
+    total_score: float = Field(default=0.17, description="Net reward for this step, clamped to (0.01, 0.99)")
     penalty_type: str = Field(default="none", description="none / false_negative / false_positive")
 
 

@@ -40,8 +40,8 @@ def _compute_spam_score(text: str) -> float:
     caps_ratio = sum(1 for c in text if c.isupper()) / max(len(text), 1)
     exclaim_ratio = text.count("!") / max(len(text), 1)
     
-    score = min(1.0, (hits * 0.25) + (caps_ratio * 0.3) + (exclaim_ratio * 0.5))
-    return round(score, 3)
+    score = min(0.99, (hits * 0.25) + (caps_ratio * 0.3) + (exclaim_ratio * 0.5))
+    return round(max(0.01, score), 3)
 
 
 def _compute_toxicity_score(text: str) -> float:
@@ -56,8 +56,8 @@ def _compute_toxicity_score(text: str) -> float:
     # Check for softeners that reduce toxicity
     softener_hits = sum(1 for p in THREAT_SOFTENERS if re.search(p, text_lower))
     
-    raw = min(1.0, (hits * 0.35) + (word_hits * 0.08))
-    softened = max(0.0, raw - (softener_hits * 0.15))
+    raw = min(0.99, (hits * 0.35) + (word_hits * 0.08))
+    softened = max(0.01, raw - (softener_hits * 0.15))
     return round(softened, 3)
 
 
@@ -90,8 +90,8 @@ def _compute_embedding_similarity(agent_reasoning: str, label: str) -> float:
                  "coded", "satirical", "threat", "spam", "violation", "pattern"}
     term_bonus = sum(0.03 for t in key_terms if t in agent_set)
     
-    similarity = min(1.0, jaccard + term_bonus)
-    return round(similarity, 3)
+    similarity = min(0.99, jaccard + term_bonus)
+    return round(max(0.01, similarity), 3)
 
 
 # ─── Classification Engine ──────────────────────────────────────────────────
