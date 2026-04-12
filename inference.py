@@ -61,13 +61,13 @@ When uncertain, flag for human review."""
 }
 
 
-def safe_score(x: float) -> float:
-    """Global safety clamp — guarantees output is strictly within (0.05, 0.49)."""
+def safe(x: float) -> float:
+    """Global safety clamp."""
     try:
         val = float(x)
     except (TypeError, ValueError):
-        val = 0.25
-    return max(0.05, min(val, 0.49))
+        val = 0.5
+    return max(0.01, min(val, 0.99))
 
 
 def build_user_prompt(content_text: str, difficulty: str) -> str:
@@ -121,7 +121,7 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
             "steps": 0,
             "total_reward": 0.5,
             "avg_reward": 0.5,
-            "score": safe_score(0.5),
+            "score": safe(0.5),
             "elapsed_s": 0.0,
         }
 
@@ -170,7 +170,7 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
         )
 
         # ── Grade with task-specific grader (returns float) ──
-        reward_score = safe_score(grader_fn(
+        reward_score = safe(grader_fn(
             content=content,
             agent_action=action_obj.action_type,
             agent_reasoning=action_obj.reasoning_chain,
@@ -197,7 +197,7 @@ def run_single_task(task_name: str, client: OpenAI) -> dict:
         avg_reward = round(cumulative_reward / step_num, 4)
 
     # CLAMP task score — MANDATORY
-    task_score = safe_score(avg_reward)
+    task_score = safe(avg_reward)
 
     print(
         f"[END] task={task_name} | steps={step_num} | total_reward={cumulative_reward:.3f} "
@@ -231,7 +231,7 @@ def run_inference():
         print(f"[END] all_tasks_complete | tasks=0 | scores=[] | overall_score=0.5000 | elapsed=0.0s")
         return {
             "tasks": {},
-            "overall_score": safe_score(0.5),
+            "overall_score": safe(0.5),
             "elapsed_s": 0.0,
         }
 
@@ -245,9 +245,9 @@ def run_inference():
     # Compute overall score — CLAMP everything
     task_scores = [r["score"] for r in results.values()]
     if len(task_scores) == 0:
-        overall_score = safe_score(0.5)
+        overall_score = safe(0.5)
     else:
-        overall_score = safe_score(sum(task_scores) / len(task_scores))
+        overall_score = safe(sum(task_scores) / len(task_scores))
 
     print(
         f"[END] all_tasks_complete | tasks={len(all_tasks)} "

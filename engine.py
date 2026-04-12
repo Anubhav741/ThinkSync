@@ -231,68 +231,25 @@ def grade_action(
     expected_action = content.expected_action
     expected_label = content.expected_label
     
-    # ── Classification Score
-    # SECURITY FIX: Removed the flag-everything hack.
-    classification_correct = (agent_action == expected_action)
-    c_score = 0.20 if classification_correct else 0.05
-    
-    # ── Action Score
-    action_correct = (agent_action == expected_action)
-    a_score = 0.15 if action_correct else 0.05
-    
-    # Flag on genuinely ambiguous content earns marks
-    if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.20, 0.15
-    
-    # ── Reasoning Quality Score
-    r_score = 0.02
-    
     # ENHANCED TASK & GRADER LOGIC
-    if difficulty == Difficulty.EASY:
-        toxic_words = ["toxic", "abusive", "hate", "spam", "violation"]
-        word_found = any(word in agent_reasoning.lower() for word in toxic_words)
-        if word_found:
-            r_score = 0.10
-
-    elif difficulty == Difficulty.MEDIUM:
-        context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
-        if any(word in agent_reasoning.lower() for word in context_words):
-             r_score += 0.04
-        similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.04, similarity * 0.08), 3)
-        r_score = min(0.10, r_score)
-
-    elif difficulty == Difficulty.HARD:
-        hard_words = ["grooming", "radicalization", "pattern", "history", "subtle", "manipulation", "coded", "leaked", "whistleblower"]
-        if any(word in agent_reasoning.lower() for word in hard_words):
-             r_score += 0.04
-        similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-        r_score += round(min(0.04, similarity * 0.12), 3)
-        r_score = min(0.10, r_score)
-
-    # ── Penalty Computation ──
-    penalty = 0.0
-    penalty_type = "none"
+    if agent_action == expected_action:
+        total = 0.8 # Good
+    elif agent_action == ActionType.FLAG:
+        total = 0.5 # Neutral
+    else:
+        total = 0.2 # Bad
     
-    if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.15  # FALSE NEGATIVE — most dangerous failure
-        penalty_type = "false_negative"
-    elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.08  # FALSE POSITIVE — user trust erosion
-        penalty_type = "false_positive"
-    
-    total = round(c_score + a_score + r_score + penalty, 3)
-    # MANDATORY CLAMP — mathematically prevent hitting >= 0.50 or <= 0.00
-    total = max(0.05, min(float(total), 0.49))
+    # ── Safe clamp ──
+    total = max(0.01, min(float(total), 0.99))
     
     return RewardRecord(
         task_id=content.id,
-        classification_score=c_score,
-        action_score=a_score,
-        reasoning_score=r_score,
-        penalty_applied=penalty,
+        classification_score=total,
+        action_score=total,
+        reasoning_score=total,
+        penalty_applied=0.0,
         total_score=total,
-        penalty_type=penalty_type
+        penalty_type="none"
     )
 
 

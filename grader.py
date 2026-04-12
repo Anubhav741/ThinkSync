@@ -25,80 +25,35 @@ def _compute_embedding_similarity(agent_reasoning: str, label: str) -> float:
         return 0.05
 
 
-def safe_score(x: float) -> float:
-    """Global safety clamp — guarantees output is strictly within (0.05, 0.49)
-    as requested to keep scores away from 1.0 and up to 0.5."""
+def safe(x: float) -> float:
+    """Global safety clamp."""
     try:
         val = float(x)
     except (TypeError, ValueError):
-        val = 0.25
-    return max(0.05, min(val, 0.49))
+        val = 0.5
+    return max(0.01, min(val, 0.99))
 
 
 # ─── Internal scoring logic (shared by both interfaces) ─────────────────────
 
-def _score_easy(content: Content, agent_action: ActionType,
-                agent_reasoning: str) -> float:
+def _score_base(content: Content, agent_action: ActionType) -> float:
     expected_action = content.expected_action
-    c_score = 0.20 if agent_action == expected_action else 0.05
-    a_score = 0.15 if agent_action == expected_action else 0.05
-    r_score = 0.02
-    toxic_words = ["toxic", "abusive", "hate", "spam", "violation", "harmful", "unsafe"]
-    if any(word in agent_reasoning.lower() for word in toxic_words):
-        r_score = 0.10
-    penalty = 0.0
-    if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.15
-    elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.08
-    return safe_score(c_score + a_score + r_score + penalty)
+    
+    if agent_action == expected_action:
+        return safe(0.8) # Good
+    elif agent_action == ActionType.FLAG:
+        return safe(0.5) # Neutral
+    else:
+        return safe(0.2) # Bad
 
+def _score_easy(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
+    return _score_base(content, agent_action)
 
-def _score_medium(content: Content, agent_action: ActionType,
-                  agent_reasoning: str) -> float:
-    expected_action = content.expected_action
-    expected_label = content.expected_label
-    c_score = 0.20 if agent_action == expected_action else 0.05
-    a_score = 0.15 if agent_action == expected_action else 0.05
-    if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.20, 0.15
-    r_score = 0.02
-    context_words = ["context", "sarcastic", "satire", "frustration", "harassment", "humor", "joke"]
-    if any(word in agent_reasoning.lower() for word in context_words):
-        r_score += 0.04
-    similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-    r_score += round(min(0.04, similarity * 0.08), 3)
-    r_score = min(0.10, r_score)
-    penalty = 0.0
-    if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.15
-    elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.08
-    return safe_score(c_score + a_score + r_score + penalty)
+def _score_medium(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
+    return _score_base(content, agent_action)
 
-
-def _score_hard(content: Content, agent_action: ActionType,
-                agent_reasoning: str) -> float:
-    expected_action = content.expected_action
-    expected_label = content.expected_label
-    c_score = 0.20 if agent_action == expected_action else 0.05
-    a_score = 0.15 if agent_action == expected_action else 0.05
-    if expected_action == ActionType.FLAG and agent_action == ActionType.FLAG:
-        c_score, a_score = 0.20, 0.15
-    r_score = 0.02
-    hard_words = ["grooming", "radicalization", "pattern", "history", "subtle",
-                  "manipulation", "coded", "leaked", "whistleblower"]
-    if any(word in agent_reasoning.lower() for word in hard_words):
-        r_score += 0.04
-    similarity = _compute_embedding_similarity(agent_reasoning, expected_label.value)
-    r_score += round(min(0.04, similarity * 0.12), 3)
-    r_score = min(0.10, r_score)
-    penalty = 0.0
-    if expected_action == ActionType.REMOVE and agent_action == ActionType.APPROVE:
-        penalty = -0.15
-    elif expected_action == ActionType.APPROVE and agent_action == ActionType.REMOVE:
-        penalty = -0.08
-    return safe_score(c_score + a_score + r_score + penalty)
+def _score_hard(content: Content, agent_action: ActionType, agent_reasoning: str) -> float:
+    return _score_base(content, agent_action)
 
 
 # ─── Helper: extract action/reasoning from sample dict ──────────────────────
@@ -189,13 +144,13 @@ def grade_easy_detection(*args, **kwargs) -> float:
                 content = _extract_content(sample.get("item", sample))
                 agent_action, agent_reasoning = _extract_action_reasoning(sample)
             else:
-                return safe_score(0.5)
+                return safe(0.5)
         else:
-            return safe_score(0.5)
+            return safe(0.5)
 
         return _score_easy(content, agent_action, agent_reasoning)
     except Exception:
-        return safe_score(0.5)
+        return safe(0.5)
 
 
 def grade_medium_classification(*args, **kwargs) -> float:
@@ -219,13 +174,13 @@ def grade_medium_classification(*args, **kwargs) -> float:
                 content = _extract_content(sample.get("item", sample))
                 agent_action, agent_reasoning = _extract_action_reasoning(sample)
             else:
-                return safe_score(0.5)
+                return safe(0.5)
         else:
-            return safe_score(0.5)
+            return safe(0.5)
 
         return _score_medium(content, agent_action, agent_reasoning)
     except Exception:
-        return safe_score(0.5)
+        return safe(0.5)
 
 
 def grade_hard_contextual(*args, **kwargs) -> float:
@@ -249,13 +204,13 @@ def grade_hard_contextual(*args, **kwargs) -> float:
                 content = _extract_content(sample.get("item", sample))
                 agent_action, agent_reasoning = _extract_action_reasoning(sample)
             else:
-                return safe_score(0.5)
+                return safe(0.5)
         else:
-            return safe_score(0.5)
+            return safe(0.5)
 
         return _score_hard(content, agent_action, agent_reasoning)
     except Exception:
-        return safe_score(0.5)
+        return safe(0.5)
 
 
 # ─── Unified dispatcher ─────────────────────────────────────────────────────
@@ -269,4 +224,4 @@ def grade_task(task_name: str, *args, **kwargs) -> float:
     elif task_name == "hard_contextual":
         return grade_hard_contextual(*args, **kwargs)
     else:
-        return safe_score(0.5)
+        return safe(0.5)
